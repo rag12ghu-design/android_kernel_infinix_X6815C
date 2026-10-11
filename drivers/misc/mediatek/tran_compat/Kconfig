@@ -1,0 +1,281 @@
+# Transsion (Infinix / Tecno / itel) Compatibility Layer Kconfig
+# Provides explicit Kconfig definitions and clean stubs for proprietary OEM extensions
+
+menuconfig TRAN_COMPAT
+	bool "Transsion Hardware and Subsystem Compatibility Layer"
+	default y
+	help
+	  Enables compatibility symbols, stubs, and interfaces for Transsion
+	  (Infinix Zero 5G 2023 / X6815C) proprietary hardware and daemon hooks.
+
+if TRAN_COMPAT
+
+config CUSTOM_TRAN_PROJECT
+	string "Transsion Project Name"
+	default "tran_x6815c"
+
+config CUSTOM_TRAN_PCBA
+	string "Transsion PCBA Name"
+	default "tran_pcba_h777"
+
+config CUSTOM_TRAN_CAM_MATERIAL_CODE
+	string "Transsion Camera Material Code"
+	default "s5kjn1_17201711 hi1631q_17201722 gc02m1_17201756 gc02m1_17201677"
+
+config CUSTOM_TRAN_KERNEL_MAIN_IMGSENSOR
+	string "Main Camera Sensor"
+	default "s5kjn1_mipi_raw"
+
+config CUSTOM_TRAN_KERNEL_SUB_IMGSENSOR
+	string "Sub/Front Camera Sensor"
+	default "hi1631q_mipi_raw"
+
+config CUSTOM_TRAN_KERNEL_MAIN2_IMGSENSOR
+	string "Main2/Depth Camera Sensor"
+	default "gc02m1_mipi_raw"
+
+config CUSTOM_TRAN_KERNEL_MAIN3_IMGSENSOR
+	string "Main3/Macro Camera Sensor"
+	default "gc02m1macro_mipi_raw"
+
+config CUSTOM_TRAN_KERNEL_MAIN4_IMGSENSOR
+	string "Main4 Camera Sensor"
+	default ""
+
+config CUSTOM_TRAN_KERNEL_SUB2_IMGSENSOR
+	string "Sub2 Camera Sensor"
+	default ""
+
+config TRAN_FINGERPRINT
+	bool "Transsion Fingerprint Subsystem"
+	default y
+
+config TRAN_FP_VENDOR
+	string "Fingerprint Vendor String"
+	default "silead chipone"
+
+config TRAN_FP_DRV_MODE_SPI
+	bool "Transsion Fingerprint SPI Mode"
+	default y
+
+config TRAN_FP_POWER_CTRL_REGULATOR
+	bool "Transsion Fingerprint Power Regulator Control"
+	default y
+
+config TRAN_FP_LOG_LVL
+	string "Transsion Fingerprint Log Level"
+	default "DEBUG"
+
+config TRAN_FP_ANDROID_VERSION
+	string "Transsion Fingerprint Target Android Version"
+	default "android_t"
+
+config TRAN_FRE
+	bool "Transsion Frame Rate Engine (FRE) Shim"
+	default y
+	help
+	  Provides safe compatibility shims for Transsion FRE hooks.
+	  Superseded by upstream CFS and Android 15 Power HAL.
+
+config TRAN_FRE_THM
+	bool "Transsion FRE Thermal Throttling Hook"
+	default y
+
+config TRAN_PNPMGR
+	bool "Transsion Power & Performance Manager (PNPMGR) Shim"
+	default y
+	help
+	  Provides safe compatibility shims for Transsion PNPMGR.
+
+config TRAN_PNP_FPSGO_BOOST
+	bool "Transsion PNP FPSGO Boost Hook"
+	default y
+
+config TRAN_PNP_GAME_CTL
+	bool "Transsion PNP Game Control Hook"
+	default y
+
+config TRAN_MEMORY_FUSION2_SUPPORT
+	bool "Transsion Memory Fusion 2 Hook"
+	default y
+	help
+	  Compatibility flag for Transsion Memory Fusion userspace requests.
+	  Superseded by upstream Linux ZRAM.
+
+config TRAN_EXTENSION_WHITELIST_SUPPORT
+	bool "Transsion Extension Whitelist"
+	default y
+
+config TRAN_SCHED_BOOST
+	bool "Transsion Scheduler Boost Hook"
+	default y
+
+config TRAN_OOM_KILLER_OPT
+	bool "Transsion OOM Killer Optimization Hook"
+	default y
+
+config TRAN_BACKLIGHT_OPT
+	bool "Transsion Backlight Optimization"
+	default y
+
+config TRAN_DOUBLE_KEY_TRIGGER
+	bool "Transsion Double Key Trigger"
+	default y
+
+config TRAN_TNEK_SUPPORT
+	bool "Transsion TNEK Support"
+	default y
+
+config TRAN_IOMANAGER_SUPPORT
+	bool "Transsion IO Manager Support"
+	default y
+
+config TRAN_TRANLOG
+	bool "Transsion Logging Framework (TranLog)"
+	default y
+
+config TRAN_RM_SOLUTION
+	bool "Transsion Resource Management Solution"
+	default y
+
+config TRAN_PERFLOG
+	bool "Transsion Performance Logging"
+	default y
+
+config TRAN_CUSTOM_LPR
+	bool "Transsion Custom Low Power Requirements"
+	default y
+
+config TRAN_BORDER_SUPPRESSION
+	bool "Transsion Touch Border Suppression"
+	default y
+
+config TRAN_AICHARGER_BIGDATA
+	bool "Transsion AI Charger Big Data Hook"
+	default y
+
+config TRAN_CHARGER_FUNCS_ADD
+	bool "Transsion Additional Charger Functions"
+	default y
+
+config TRAN_AFTER_SALE_TOOL
+	bool "Transsion After-Sale Factory Tool Support"
+	default y
+
+config TRAN_CHARGER_OTG_LPO_SUPPORT
+	bool "Transsion Charger OTG Low Power Option"
+	default y
+
+config TRAN_CHARGER_SW_OTG_SUPPORT
+	bool "Transsion Charger Software OTG Support"
+	default y
+
+config TRAN_CHARGER_AGING_SUPPORT
+	bool "Transsion Charger Aging Prevention"
+	default y
+
+config TRAN_BATTERY_AGING
+	bool "Transsion Battery Aging Detection"
+	default y
+
+config TRAN_CHARGER_DIR
+	bool "Transsion Charger Direction Sensing"
+	default y
+
+config TRAN_CHARGER_EXTERN_JEITA
+	bool "Transsion External JEITA Charger Protection"
+	default y
+
+config TRAN_CHARGER_USB_SWITCH
+	bool "Transsion Charger USB Switch"
+	default y
+
+config TRAN_CHG_TYPE_DETECT_RETRY
+	bool "Transsion Charger Type Detection Retry"
+	default y
+
+config TRAN_ROLLBACK_LAYERS_TO_GPU
+	bool "Transsion SurfaceFlinger GPU Fallback Hook"
+	default y
+
+config TRAN_OPEN_HEADSET_MIC_TEST
+	bool "Transsion Open Headset Mic Diagnostic Hook"
+	default y
+
+config TRAN_SDCARD_DEBUG
+	bool "Transsion SDCard Debugging Extension"
+	default y
+
+config TRAN_ANDROID_BINDER_DEFER_WORK_BLOCK
+	bool "Transsion Binder Defer Work Block Monitor"
+	default y
+
+config TRAN_ANDROID_BINDER_BLOCK_MONITOR
+	bool "Transsion Binder IPC Block Monitor"
+	default y
+
+config TRAN_ANDROID_BINDER_BUFFER_EXHAUST_MONITOR
+	bool "Transsion Binder Buffer Exhaustion Monitor"
+	default y
+
+config TRAN_ANDROID_BINDER_SF_PROXY_MONITOR
+	bool "Transsion Binder SurfaceFlinger Proxy Monitor"
+	default y
+
+config TRAN_RHI
+	bool "Transsion Radio Hardware Interface Extension"
+	default y
+
+config TRAN_F2FS_DEFRAGMENT
+	bool "Transsion F2FS Defragmentation Extension"
+	default y
+
+config TRAN_SD_TRAY_SUPPORTED
+	bool "Transsion Dual SIM & SD Tray Support"
+	default y
+
+config TRAN_TKV_SUPPORTED
+	bool "Transsion Token Key-Value Store Hook"
+	default y
+
+config TRAN_SPDK_SUPPORT
+	bool "Transsion SPDK Storage Acceleration"
+	default y
+
+config TRAN_MODEM_DUMP
+	bool "Transsion Baseband Modem Dump Extension"
+	default y
+
+config TRAN_CAMERA_EXT_LDO_REGULATOR
+	bool "Transsion Camera External LDO Regulator"
+	default y
+
+config TRAN_CAM_USE_PMU_LDO2
+	bool "Transsion Camera PMU LDO2 Power Binding"
+	default y
+
+config TRAN_FLASHLIGHT_THERMAL_CONTROL
+	bool "Transsion Dual LED Flash Thermal Protection"
+	default y
+
+config CHARGER_HL7138
+	bool "Halo Micro HL7138 Switching Charger Support"
+	default y
+
+config CHARGER_HL7138_WATCHDOG_CLOSE
+	bool "Halo Micro HL7138 Watchdog Close Support"
+	default y
+
+config SND_SOC_FS18XX
+	bool "FourSemi FS1801 / FS18XX Smart Audio PA Amplifier"
+	default y
+
+config DRM_PANEL_NT36672C_FHDP_DSI_VDO_TM_TM_120HZ_X6815C
+	bool "Novatek NT36672C 120Hz FHDP DSI Panel for X6815C"
+	default y
+
+config TOUCHSCREEN_MTK_NT36xxx_NOFLASH_COMMON
+	bool "Novatek NT36xxx NoFlash Touchscreen Driver"
+	default y
+
+endif # TRAN_COMPAT
