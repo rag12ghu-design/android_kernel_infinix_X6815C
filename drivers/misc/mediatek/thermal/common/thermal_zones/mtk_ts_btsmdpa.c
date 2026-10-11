@@ -25,6 +25,7 @@
 #include <linux/uidgid.h>
 #include <tmp_bts.h>
 #include <linux/slab.h>
+#include <linux/err.h>
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 #include <linux/iio/consumer.h>
 #endif
@@ -613,7 +614,11 @@ static int get_hw_btsmdpa_temp(void)
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 	if (IS_ERR_OR_NULL(thermistor_ch1)) {
 		mtkts_btsmdpa_dprintk("invalid thermistor_ch1:0x%p\n", thermistor_ch1);
-		return ret;
+#ifdef APPLY_PRECISE_BTS_TEMP
+		return 25000;
+#else
+		return 25;
+#endif
 	}
 	ret = iio_read_channel_processed(thermistor_ch1, &val);
 	mtkts_btsmdpa_dprintk("%s val=%d\n", __func__, val);
@@ -757,6 +762,12 @@ int mtkts_btsmdpa_get_hw_temp(void)
 
 static int mtkts_btsmdpa_get_temp(struct thermal_zone_device *thermal, int *t)
 {
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	if (IS_ERR_OR_NULL(thermistor_ch1)) {
+		*t = 25000;
+		return 0;
+	}
+#endif
 	*t = mtkts_btsmdpa_get_hw_temp();
 
 	if ((int)*t > 52000)
