@@ -1,0 +1,13 @@
+# Final-link probe corrections for the public Xiaomi-derived MT6877 baseline.
+# Provide get_hw_sku(), which many baseline power/USB/audio drivers reference.
+CONFIG_MI_HARDWARE_ID=y
+
+# Stock ships gps_drv and conninfra as modules. Building GPS into vmlinux while
+# conninfra remains a module creates undefined conninfra_* symbols.
+CONFIG_MTK_COMBO_GPS=m
+
+# X6815C vendor evidence identifies Silead fingerprint userspace. The extracted
+# stock config enables generic MTK fingerprint support but does not explicitly
+# select FPC or Goodix; this baseline defaults both to y and then lacks uuid_fp.
+# CONFIG_FPC_FINGERPRINT is not set
+# CONFIG_GOODIX_CAP_FINGERPRINT is not set

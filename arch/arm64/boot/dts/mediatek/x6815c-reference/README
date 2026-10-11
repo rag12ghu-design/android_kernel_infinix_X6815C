@@ -1,0 +1,5 @@
+These files were decompiled from stock X6815C DTB/DTBO artifacts. They are
+reference material, not automatically selected build inputs. Decompiled DTS
+can lose source structure, labels, includes, and overlay intent. Use the stock
+DTB/DTBO for initial kernel-only testing until the source hierarchy is ported
+and validated node by node.

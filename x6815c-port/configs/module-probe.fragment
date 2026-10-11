@@ -1,0 +1,2 @@
+# Stock modules.dep and modules.load require connfem before WLAN and Bluetooth.
+CONFIG_MTK_CONNFEM=m

@@ -1,0 +1,8 @@
+# Build-probe overrides only. This is NOT the stock X6815C configuration.
+# The public MT6877 baseline does not contain the four camera sensor source
+# directories selected by the extracted stock configuration:
+#   s5kjn1_mipi_raw hi1631q_mipi_raw gc02m1_mipi_raw gc02m1macro_mipi_raw
+# Keep the original config unchanged and disable camera integration only to
+# continue compilation far enough to inventory other missing vendor sources.
+CONFIG_CUSTOM_KERNEL_IMGSENSOR=""
+# CONFIG_MTK_IMGSENSOR is not set

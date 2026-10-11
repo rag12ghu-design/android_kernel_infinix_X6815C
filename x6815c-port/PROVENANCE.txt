@@ -1,0 +1,16 @@
+Generated: 2026-10-11T06:45:27Z
+Baseline URL: https://github.com/xiaomi-mediatek-devs/android_kernel_xiaomi_mt6877
+Baseline branch: lineage-21
+Baseline commit: e01b96d7bb9312eb87f88d0fba118c26a0fc3484
+Reference URL: https://github.com/rag12ghu-design/android_device_infinix_X6815C-kernel
+Reference branch: lineage-22.2
+Reference commit: 149b5e5e15320350f7be8e6777aa24566b5a999e
+Device URL: https://github.com/rag12ghu-design/android_device_infinix_X6815C
+Device branch: lineage-22.2
+Device commit: ac74d0a72d2193fb55ff16f0da998dc5bad39709
+Stock Image.gz SHA256: 7d9b2a13fb9bd11ca73cb086175b9eadc0b53a0e6bd94c8d942dd8597c511bd0
+Stock DTB SHA256: bfb04653d4cfe1bd50abea136b20fa1edf8c0d68dc5036e18ef08890029f25bd
+Stock DTBO SHA256: c579e5bab2ea7a161c9ad0025bbc657de2359af7db2267772b20c8b6532c9a27
+Vendor URL: https://github.com/rag12ghu-design/android_vendor_infinix_X6815C
+Vendor branch: lineage-22.2
+Vendor commit: 9bcc9db51d4ec6d899045dad7a486e5993abb235
