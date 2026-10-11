@@ -1,16 +1,35 @@
-Generated: 2026-10-11T06:45:27Z
+# Exact Provenance: Infinix Zero 5G 2023 (X6815C) Ground Truth
+
+Initial Baseline Recorded: 2026-10-11T06:45:27Z
+Slot B Resolution Recorded: 2026-10-11T17:33:41Z
+
+## Repositories
 Baseline URL: https://github.com/xiaomi-mediatek-devs/android_kernel_xiaomi_mt6877
 Baseline branch: lineage-21
 Baseline commit: e01b96d7bb9312eb87f88d0fba118c26a0fc3484
+
 Reference URL: https://github.com/rag12ghu-design/android_device_infinix_X6815C-kernel
 Reference branch: lineage-22.2
 Reference commit: 149b5e5e15320350f7be8e6777aa24566b5a999e
+
 Device URL: https://github.com/rag12ghu-design/android_device_infinix_X6815C
 Device branch: lineage-22.2
 Device commit: ac74d0a72d2193fb55ff16f0da998dc5bad39709
-Stock Image.gz SHA256: 7d9b2a13fb9bd11ca73cb086175b9eadc0b53a0e6bd94c8d942dd8597c511bd0
-Stock DTB SHA256: bfb04653d4cfe1bd50abea136b20fa1edf8c0d68dc5036e18ef08890029f25bd
-Stock DTBO SHA256: c579e5bab2ea7a161c9ad0025bbc657de2359af7db2267772b20c8b6532c9a27
+
 Vendor URL: https://github.com/rag12ghu-design/android_vendor_infinix_X6815C
 Vendor branch: lineage-22.2
 Vendor commit: 9bcc9db51d4ec6d899045dad7a486e5993abb235
+
+## Verified Stock Binaries (Slot B Ground Truth - Unrooted)
+Collection ID: x6815c-inactive-slot-20261011T085849Z
+Active slot on device: _a (contained root modifications)
+Inactive slot on device: _b (unmodified factory baseline)
+
+Stock boot_b.img SHA256: f556c920f52974f44d23ca861af95580a3e8a98ad27b90bc4baeb86cc3ffc918 (41,943,040 bytes)
+Stock Image.gz SHA256: 7d9b2a13fb9bd11ca73cb086175b9eadc0b53a0e6bd94c8d942dd8597c511bd0 (13,182,614 bytes)
+Stock DTB SHA256: bfb04653d4cfe1bd50abea136b20fa1edf8c0d68dc5036e18ef08890029f25bd (175,397 bytes)
+Stock DTBO SHA256: c579e5bab2ea7a161c9ad0025bbc657de2359af7db2267772b20c8b6532c9a27 (8,388,608 bytes)
+Stock vbmeta_b.img SHA256: 1e728b660ca40296f7a6fdfbd5b88219972a7589b6e606b88b82f8044b10960d (8,388,608 bytes)
+Stock ramdisk.img SHA256: 24280ab148f7e0c9dce1dabd63b0192b5a264566ed3ea7c4e98d19b5ace10df4 (27,345,441 bytes)
+
+Status: [FIXED] Verified against unmodified factory firmware.
