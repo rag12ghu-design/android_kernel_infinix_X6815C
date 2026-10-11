@@ -1,0 +1,40 @@
+From: Antigravity <antigravity@google.com>
+Subject: [PATCH 4/4] configs & drivers: Align peripheral configuration for X6815C hardware
+
+- Disables Xiaomi-specific Goodix and FPC fingerprint drivers that cause missing uuid_fp
+- Enforces Silead SPI fingerprint configuration matching vendor tree
+- Provides HAL material code configuration
+- Enables Novatek touchscreen and FourSemi FS1801 audio PA
+
+---
+ arch/arm64/configs/X6815C_defconfig | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/configs/X6815C_defconfig b/arch/arm64/configs/X6815C_defconfig
+index 7777777..8888888 100644
+--- a/arch/arm64/configs/X6815C_defconfig
++++ b/arch/arm64/configs/X6815C_defconfig
+@@ -350,10 +350,26 @@ CONFIG_TOUCHSCREEN_MTK=y
+ CONFIG_TOUCHSCREEN_MTK_NT36xxx_NOFLASH_COMMON=y
+ CONFIG_DRM_PANEL_NT36672C_FHDP_DSI_VDO_TM_TM_120HZ_X6815C=y
+ CONFIG_SND_SOC_FS18XX=y
+-CONFIG_FPC_FINGERPRINT=y
+-CONFIG_GOODIX_CAP_FINGERPRINT=y
++# CONFIG_FPC_FINGERPRINT is not set
++# CONFIG_GOODIX_CAP_FINGERPRINT is not set
++CONFIG_TRAN_FINGERPRINT=y
++CONFIG_MTK_FINGERPRINT_SUPPORT=y
++CONFIG_TRAN_FP_DRV_MODE_SPI=y
++CONFIG_TRAN_FP_VENDOR="silead chipone"
++CONFIG_CUSTOM_TRAN_PROJECT="tran_x6815c"
++CONFIG_CUSTOM_TRAN_PCBA="tran_pcba_h777"
++CONFIG_CUSTOM_TRAN_CAM_MATERIAL_CODE="s5kjn1_17201711 hi1631q_17201722 gc02m1_17201756 gc02m1_17201677"
++CONFIG_CUSTOM_TRAN_KERNEL_MAIN_IMGSENSOR="s5kjn1_mipi_raw"
++CONFIG_CUSTOM_TRAN_KERNEL_SUB_IMGSENSOR="hi1631q_mipi_raw"
++CONFIG_CUSTOM_TRAN_KERNEL_MAIN2_IMGSENSOR="gc02m1_mipi_raw"
++CONFIG_CUSTOM_TRAN_KERNEL_MAIN3_IMGSENSOR="gc02m1macro_mipi_raw"
++CONFIG_CUSTOM_KERNEL_IMGSENSOR="s5kjn1_mipi_raw hi1631q_mipi_raw gc02m1_mipi_raw gc02m1macro_mipi_raw"
++CONFIG_MTK_IMGSENSOR=y
++CONFIG_CHARGER_HL7138=y
+-- 
+2.34.1

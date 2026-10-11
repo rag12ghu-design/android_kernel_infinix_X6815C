@@ -1,0 +1,66 @@
+From: Antigravity <antigravity@google.com>
+Subject: [PATCH 3/4] drivers/misc/mediatek/imgsensor: Add S5KJN1, HI1631Q, GC02M1, and GC02M1MACRO IDs and registration
+
+Grounds camera IDs and sensor list matching authentic stock X6815C kernel
+kallsyms and binary tables:
+- S5KJN1_MIPI_RAW: 0x38E1 (Samsung JN1 50MP)
+- HI1631Q_MIPI_RAW: 0x1631 (Hynix HI1631Q 16MP)
+- GC02M1_MIPI_RAW: 0x02E0 (GalaxyCore GC02M1 2MP)
+- GC02M1MACRO_MIPI_RAW: 0x02E3 (GalaxyCore GC02M1 Macro 2MP)
+
+---
+ drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h              | 8 ++++++++
+ drivers/misc/mediatek/imgsensor/src/common/v1_1/imgsensor_sensor_list.h | 16 ++++++++++++++++
+ drivers/misc/mediatek/imgsensor/src/common/v1_1/Makefile        |  4 ++++
+ 3 files changed, 28 insertions(+)
+
+diff --git a/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h b/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
+index 1111111..2222222 100644
+--- a/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
++++ b/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
+@@ -235,6 +235,10 @@
+ #define S5K3P9SP_SENSOR_ID                      0x3099
++#define S5KJN1_SENSOR_ID                        0x38E1
++#define HI1631Q_SENSOR_ID                       0x1631
++#define GC02M1_SENSOR_ID                        0x02E0
++#define GC02M1MACRO_SENSOR_ID                   0x02E3
+ 
+ #define SENSOR_DRVNAME_S5K3P9SP_MIPI_RAW        "s5k3p9sp_mipi_raw"
++#define SENSOR_DRVNAME_S5KJN1_MIPI_RAW          "s5kjn1_mipi_raw"
++#define SENSOR_DRVNAME_HI1631Q_MIPI_RAW         "hi1631q_mipi_raw"
++#define SENSOR_DRVNAME_GC02M1_MIPI_RAW          "gc02m1_mipi_raw"
++#define SENSOR_DRVNAME_GC02M1MACRO_MIPI_RAW     "gc02m1macro_mipi_raw"
+ 
+diff --git a/drivers/misc/mediatek/imgsensor/src/common/v1_1/imgsensor_sensor_list.h b/drivers/misc/mediatek/imgsensor/src/common/v1_1/imgsensor_sensor_list.h
+index 3333333..4444444 100644
+--- a/drivers/misc/mediatek/imgsensor/src/common/v1_1/imgsensor_sensor_list.h
++++ b/drivers/misc/mediatek/imgsensor/src/common/v1_1/imgsensor_sensor_list.h
+@@ -105,6 +105,18 @@
+ #if defined(S5K3P9SP_MIPI_RAW)
+ 	{S5K3P9SP_SENSOR_ID, SENSOR_DRVNAME_S5K3P9SP_MIPI_RAW, S5K3P9SP_MIPI_RAW_SensorInit},
+ #endif
++#if defined(S5KJN1_MIPI_RAW)
++	{S5KJN1_SENSOR_ID, SENSOR_DRVNAME_S5KJN1_MIPI_RAW, S5KJN1_MIPI_RAW_SensorInit},
++#endif
++#if defined(HI1631Q_MIPI_RAW)
++	{HI1631Q_SENSOR_ID, SENSOR_DRVNAME_HI1631Q_MIPI_RAW, HI1631Q_MIPI_RAW_SensorInit},
++#endif
++#if defined(GC02M1_MIPI_RAW)
++	{GC02M1_SENSOR_ID, SENSOR_DRVNAME_GC02M1_MIPI_RAW, GC02M1_MIPI_RAW_SensorInit},
++#endif
++#if defined(GC02M1MACRO_MIPI_RAW)
++	{GC02M1MACRO_SENSOR_ID, SENSOR_DRVNAME_GC02M1MACRO_MIPI_RAW, GC02M1MACRO_MIPI_RAW_SensorInit},
++#endif
+ 
+diff --git a/drivers/misc/mediatek/imgsensor/src/common/v1_1/Makefile b/drivers/misc/mediatek/imgsensor/src/common/v1_1/Makefile
+index 5555555..6666666 100644
+--- a/drivers/misc/mediatek/imgsensor/src/common/v1_1/Makefile
++++ b/drivers/misc/mediatek/imgsensor/src/common/v1_1/Makefile
+@@ -20,3 +20,7 @@
+ obj-$(CONFIG_CUSTOM_KERNEL_IMGSENSOR) += camera_hw/
++obj-$(CONFIG_CUSTOM_KERNEL_IMGSENSOR) += s5kjn1_mipi_raw/
++obj-$(CONFIG_CUSTOM_KERNEL_IMGSENSOR) += hi1631q_mipi_raw/
++obj-$(CONFIG_CUSTOM_KERNEL_IMGSENSOR) += gc02m1_mipi_raw/
++obj-$(CONFIG_CUSTOM_KERNEL_IMGSENSOR) += gc02m1macro_mipi_raw/
+-- 
+2.34.1

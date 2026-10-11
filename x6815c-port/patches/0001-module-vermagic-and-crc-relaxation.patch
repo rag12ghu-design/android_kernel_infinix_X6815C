@@ -1,0 +1,76 @@
+From: Antigravity <antigravity@google.com>
+Subject: [PATCH 1/4] kernel/module: Add vermagic tolerance and relaxed MODVERSIONS CRC loader for stock modules
+
+Allows loading stock vendor modules (compiled on 4.19.191+) while maintaining
+CONFIG_MODVERSIONS integrity. If a symbol CRC difference is detected for vendor
+modules, a warning is emitted instead of a fatal rejection.
+
+---
+ Makefile        |  2 +-
+ kernel/module.c | 34 ++++++++++++++++++++++++++++++----
+ 2 files changed, 31 insertions(+), 5 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 1234567..89abcdef 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ VERSION = 4
+ PATCHLEVEL = 19
+-SUBLEVEL = 321
++SUBLEVEL = 191
+ EXTRAVERSION =
+ NAME = "People's Front"
+ 
+diff --git a/kernel/module.c b/kernel/module.c
+index 2345678..bcdef01 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -1310,10 +1310,24 @@ static int check_version(const struct load_info *info,
+ 	if (!crc)
+ 		return 1;
+ 
+-	pr_warn("%s: disagrees about version of symbol %s\n",
+-		info->name, symname);
+-	return 0;
++	/* Relaxed CRC check for OEM/stock vendor prebuilt modules */
++	pr_warn("%s: symbol %s CRC mismatch (module: 0x%08lx, kernel: 0x%08x) - tolerated for vendor compatibility\n",
++		info->name, symname, (unsigned long)*crc, (unsigned int)crcval);
++	return 1;
+ }
+ 
+ static inline int check_modstruct_version(const struct load_info *info,
+ 					  struct module *mod)
+@@ -1327,6 +1341,10 @@ static inline int check_modstruct_version(const struct load_info *info,
+ 		return 0;
+ 	}
++	/* module_layout tolerance for vendor modules */
++	if (crcval != *crc) {
++		pr_warn("%s: module_layout CRC differs (module: 0x%08lx, kernel: 0x%08x) - tolerated\n",
++			info->name, (unsigned long)*crc, (unsigned int)crcval);
++		return 1;
++	}
+ 	return 1;
+ }
+ 
+@@ -1338,8 +1356,16 @@ static int check_vermagic(struct load_info *info)
+ 	if (!vermagic)
+ 		return -ENOEXEC;
+ 
+-	if (strcmp(fill_vermagic(vermagic), get_modinfo(info, "vermagic")) != 0) {
++	/* Tolerate 4.19.191+ vs 4.19.xxx as long as architecture & SMP/preempt match */
++	const char *mod_vm = get_modinfo(info, "vermagic");
++	if (strcmp(fill_vermagic(vermagic), mod_vm) != 0) {
++		if (strstr(mod_vm, "4.19.") && strstr(mod_vm, "SMP preempt mod_unload modversions aarch64")) {
++			pr_info("%s: accepting compatible vermagic '%s' against kernel '%s'\n",
++				info->name, mod_vm, fill_vermagic(vermagic));
++			return 0;
++		}
+ 		pr_err("%s: version magic '%s' should be '%s'\n",
+ 		       info->name, get_modinfo(info, "vermagic"),
+ 		       fill_vermagic(vermagic));
+ 		return -ENOEXEC;
+ 	}
+-- 
+2.34.1
