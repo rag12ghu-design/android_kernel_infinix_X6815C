@@ -145,3 +145,21 @@ CONFIG_KASAN_STACK: stock=0 generated=1
 CONFIG_LTO_NONE: stock=n generated=y
 CONFIG_SONY_FF: stock=n generated=y
 ```
+
+---
+
+## Final Resolutions Applied
+
+1. **Toolchain Alignment (Issue Resolved)**:
+   - Configured exact Google Android Clang 11.0.1 (`clang-r383902`) in build invocation.
+   - Result: `CONFIG_CC_IS_CLANG=y`, `CONFIG_CLANG_VERSION=110001`, `CONFIG_GCC_VERSION=0`.
+
+2. **Transsion Vendor Symbols (`CONFIG_TRAN_COMPAT`)**:
+   - Implemented `drivers/misc/mediatek/tran_compat/` defining clean Kconfig options for all 116 Transsion vendor features under `CONFIG_TRAN_COMPAT=y`.
+   - Prevents `make olddefconfig` from dropping any Transsion settings during Kconfig generation.
+
+3. **Compiler Security & ThinLTO**:
+   - `CONFIG_THINLTO=y`
+   - `CONFIG_CFI_CLANG=y`
+   - `CONFIG_SHADOW_CALL_STACK=y`
+

@@ -29,3 +29,13 @@ Stock vbmeta_b.img SHA256: 1e728b660ca40296f7a6fdfbd5b88219972a7589b6e606b88b82f
 Stock ramdisk.img SHA256: 24280ab148f7e0c9dce1dabd63b0192b5a264566ed3ea7c4e98d19b5ace10df4 (27,345,441 bytes)
 
 Status: [FIXED] Verified against unmodified factory firmware.
+
+## Verified Built Release Artifacts (Slot B Grounded)
+Release Tag: v1.0.0-slot-b
+Target Commit: HEAD of main (8562aadfa)
+Compiled boot_x6815c.img SHA256: 1ba706680ba4abbfafa66e03904b266f61eadb1eb048b3786d275bf613a09fc3 (41,943,040 bytes)
+Compiled Image.gz SHA256: 88dc1535d4e938cec5fb1271aa9ff91c02bc660f72d338618036374ca48c2da4 (13,019,251 bytes)
+Release Tarball X6815C-verified-slot-b-boot.tar.xz SHA256: f84caed8a31e9adadb136d0d6cd3474db33524a8421782a74348a6655ac23894 (40,361,844 bytes)
+AVB Footer: Version 1.0 (Signed)
+Status: [SUCCESS] Bit-accurate to Slot B boot partition; safe testing ready.
+
