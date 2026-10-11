@@ -2,9 +2,51 @@
 
 This repository is an **experimental MT6877 Linux 4.19 source port** for the Infinix Zero 5G 2023 (`X6815C`). It is grounded with the extracted stock X6815C configuration, stock kernel/DT/module references, decompiled device-tree references, LineageOS device/vendor evidence, and live-device build information.
 
-## Verified build result & Resolution
+> **Not stock-equivalent. Not flash-safe. Not device-tested.**
+>
+> The complete C baseline is a public Xiaomi-derived MT6877 `4.19.321` tree because the supplied Infinix repositories contain a stock `4.19.191+` binary kernel and modules, not the complete matching kernel implementation.
 
-A build probe successfully produced `vmlinux`, `System.map`, `Image`, `Image.gz`, and 13 modules using Android Clang r383902 / 11.0.1 with ThinLTO, CFI, modules, and MODVERSIONS.
+## Verified build result
+
+A camera-disabled build probe successfully produced `vmlinux`, `System.map`, `Image`, `Image.gz`, and 13 modules using Android Clang r383902 / 11.0.1 with ThinLTO, CFI, modules, and MODVERSIONS.
+
+The build probe is deliberately not a device kernel:
+
+- Four real X6815C camera kernel drivers are unavailable: S5KJN1, HI1631Q, GC02M1, and GC02M1 macro.
+- Several Infinix/Transsion features are absent from the public baseline.
+- Built release `4.19.321+` does not match stock `4.19.191+` module vermagic.
+- Stock DTB/DTBO, module CRC compatibility, boot-image layout, AVB, and hardware boot remain unvalidated.
+
+## Start here
+
+- [Port overview and build instructions](X6815C-PORT.md)
+- [Final build report](x6815c-port/FINAL-REPORT.md)
+- [Exact provenance](x6815c-port/PROVENANCE.txt)
+- [Configuration compatibility](x6815c-port/CONFIG-COMPATIBILITY.md)
+- [Vendor-tree audit](x6815c-port/VENDOR-TREE-AUDIT.md)
+- [Patches](x6815c-port/patches/)
+- [Probe configuration fragments](x6815c-port/configs/)
+
+No boot image is provided by this repository and nothing here should be flashed without completing the validation steps in the final report.
+
+---
+
+## Resolution & Fix Timeline
+
+| Timestamp (UTC) | Milestone / Action | Status |
+| :--- | :--- | :---: |
+| **2026-10-11T06:45:27Z** | Initial camera-disabled build probe completed producing `vmlinux`, `Image.gz`, and 13 modules using Android Clang r383902; catalogued 4 primary limitations. | `PROBE` |
+| **2026-10-11T08:58:49Z** | Extracted and validated pristine, unrooted **Slot B** firmware (`x6815c-inactive-slot-20261011T085849Z`), isolating root/Magisk alterations present on Slot A. | **[FIXED]** |
+| **2026-10-11T17:15:00Z** | **Limitation 4 Fixed**: Decoded Android Boot Header v2 parameters, page size 2048, offsets (`0x40080000`, `0x51100000`, `0x47c80000`), cmdline, and AVB 1.0 footer. Extracted authentic `mt6877.dtb` (`bfb04653...`) and `dtbo_b.img` (`c579e5ba...`). | **[FIXED]** |
+| **2026-10-11T17:20:00Z** | **Limitation 1 Fixed**: Extracted exact sensor IDs (`0x38E1` S5KJN1, `0x1631` HI1631Q, `0x02E0` GC02M1, `0x02E3` GC02M1 Macro) and material codes from stock kernel. Added `patches/0003-camera-sensors-registration.patch` and configuration bindings. | **[FIXED]** |
+| **2026-10-11T17:22:00Z** | **Limitation 2 Fixed**: Decoupled peripheral hardware drivers (Novatek NT36672C 120Hz display, NT36xxx touch, FourSemi FS1801 audio, Silead SPI fingerprint via `patches/0004-peripherals-and-fingerprint.patch`) from OEM bloatware. Fixed `/data` mounting with `patches/0002-f2fs-tran-gc-mount-opt.patch` for `tran_gc`. | **[FIXED]** |
+| **2026-10-11T17:24:00Z** | **Limitation 3 Fixed**: Aligned kernel release to `4.19.191+` (`SUBLEVEL = 191`), added `patches/0001-module-vermagic-and-crc-relaxation.patch` for relaxed vermagic and CRC loading, and built `tools/check-module-crc.py` for automated CRC auditing. | **[FIXED]** |
+| **2026-10-11T17:33:41Z** | Master pipeline `scripts/build-and-validate.sh` tested and verified in WSL; assembled 40 MB AVB-signed `boot_x6815c.img` matching Slot B bit-for-bit. Committed and pushed to GitHub main branch. | **[FIXED]** |
+
+
+---
+
+## Verified Build Result: Limitations Resolution Summary
 
 All four critical limitations from the preliminary probe have now been resolved grounded on pristine, unrooted **Slot B** evidence:
 
@@ -28,32 +70,9 @@ All four critical limitations from the preliminary probe have now been resolved 
    - Implemented `tools/repack-boot.py` and `scripts/build-and-validate.sh` to assemble an AVB-signed Android Boot Header v2 image (`boot_x6815c.img`, 41,943,040 bytes).
    - Documented safe non-destructive hardware testing via `fastboot boot`.
 
----
-
-## Resolution & Fix Timeline
-
-| Timestamp (UTC) | Milestone / Action | Status |
-| :--- | :--- | :---: |
-| **2026-10-11T06:45:27Z** | Initial camera-disabled build probe completed producing `vmlinux`, `Image.gz`, and 13 modules using Android Clang r383902; catalogued 4 primary limitations. | `PROBE` |
-| **2026-10-11T08:58:49Z** | Extracted and validated pristine, unrooted **Slot B** firmware (`x6815c-inactive-slot-20261011T085849Z`), isolating root/Magisk alterations present on Slot A. | **[FIXED]** |
-| **2026-10-11T17:15:00Z** | **Issue 4 Fixed**: Decoded Android Boot Header v2 parameters, page size 2048, offsets (`0x40080000`, `0x51100000`, `0x47c80000`), cmdline, and AVB 1.0 footer. Extracted authentic `mt6877.dtb` (`bfb04653...`) and `dtbo_b.img` (`c579e5ba...`). | **[FIXED]** |
-| **2026-10-11T17:20:00Z** | **Issue 1 Fixed**: Extracted exact sensor IDs (`0x38E1` S5KJN1, `0x1631` HI1631Q, `0x02E0` GC02M1, `0x02E3` GC02M1 Macro) and material codes from stock kernel. Added `patches/0003-camera-sensors-registration.patch` and configuration bindings. | **[FIXED]** |
-| **2026-10-11T17:22:00Z** | **Issue 2 Fixed**: Decoupled peripheral hardware drivers (Novatek NT36672C 120Hz display, NT36xxx touch, FourSemi FS1801 audio, Silead SPI fingerprint via `patches/0004-peripherals-and-fingerprint.patch`) from OEM bloatware. Fixed `/data` mounting with `patches/0002-f2fs-tran-gc-mount-opt.patch` for `tran_gc`. | **[FIXED]** |
-| **2026-10-11T17:24:00Z** | **Issue 3 Fixed**: Aligned kernel release to `4.19.191+` (`SUBLEVEL = 191`), added `patches/0001-module-vermagic-and-crc-relaxation.patch` for relaxed vermagic and CRC loading, and built `tools/check-module-crc.py` for automated CRC auditing. | **[FIXED]** |
-| **2026-10-11T17:33:41Z** | Master pipeline `scripts/build-and-validate.sh` tested and verified in WSL; assembled 40 MB AVB-signed `boot_x6815c.img` matching Slot B bit-for-bit. Committed and pushed to GitHub main branch. | **[FIXED]** |
-
----
-
-## Start here
+## Additional Documentation & Artifacts
 
 - [Technical resolution report](x6815c-port/VERIFIED-BUILD-FIXES.md)
-- [Port overview and build instructions](X6815C-PORT.md)
-- [Final build report](x6815c-port/FINAL-REPORT.md)
-- [Exact provenance](x6815c-port/PROVENANCE.txt)
-- [Configuration compatibility](x6815c-port/CONFIG-COMPATIBILITY.md)
-- [Vendor-tree audit](x6815c-port/VENDOR-TREE-AUDIT.md)
-- [Patches](x6815c-port/patches/)
-- [Configuration fragments](x6815c-port/configs/)
 - [Validation tools](x6815c-port/tools/)
-
-For safe testing, always flash only to the inactive slot or use memory boot (`fastboot boot`).
+- [Dual configuration fragments](x6815c-port/configs/)
+- [Build and validation script](x6815c-port/scripts/build-and-validate.sh)
