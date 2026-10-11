@@ -4,11 +4,17 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
-SRC="${SRC:-$REPO_ROOT/source}"
+if [[ -z "${SRC:-}" ]]; then
+    if [[ -f "$REPO_ROOT/source/Makefile" ]]; then
+        SRC="$REPO_ROOT/source"
+    elif [[ -f "$REPO_ROOT/../Makefile" ]]; then
+        SRC="$(cd "$REPO_ROOT/.." && pwd)"
+    fi
+fi
 OUT="${OUT:-$REPO_ROOT/out-x6815c}"
 SLOT_B="${SLOT_B:-$REPO_ROOT/reference-slot-b}"
 VENDOR_MODS="${VENDOR_MODS:-/home/jim/android/device_infinix_X6815C-kernel/vendor-modules}"
-JOBS="${JOBS:-$(nproc 2>/dev/null || echo 8)}"
+JOBS="${JOBS:-$(nproc 2>/dev/null || echo 16)}"
 
 echo "=== Infinix Zero 5G 2023 (X6815C) Kernel Build & Validation ==="
 echo "[*] Source:     $SRC"
@@ -54,8 +60,12 @@ echo "    DTB:     $(sha256sum "$DTB_FILE" | awk '{print $1}')"
 echo "    Ramdisk: $(sha256sum "$SLOT_B/ramdisk.img" | awk '{print $1}')"
 
 # Step 2: Build Environment
+CLANG_PATH="${CLANG_PATH:-/home/rafaeruu/toolchains/clang-r383902/bin}"
+export PATH="$CLANG_PATH:/usr/local/bin:/usr/bin:/bin"
+
 V=(ARCH=arm64 SUBARCH=arm64 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm
    OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip HOSTCC=gcc HOSTCXX=g++
+   CROSS_COMPILE=aarch64-linux-gnu-
    TARGET_BUILD_VARIANT=userdebug CONFIG_MTK_COMBO_WIFI_HIF=axi
    MTK_COMBO_CHIP=CONNAC2X2_SOC5_0 BT_PLATFORM=6877 WLAN_CHIP_ID=6877
    MTK_ANDROID_WMT=y MTK_ANDROID_EMI=y WIFI_IP_SET=1 MTK_WLAN_SERVICE=yes
