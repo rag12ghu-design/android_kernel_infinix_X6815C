@@ -459,6 +459,10 @@ static void extcon_parse_cmdline(void)
 {
 	char *ruby = NULL, *rubypro = NULL, *rubyplus = NULL;
 	const char *sku = get_hw_sku();
+
+	if (!sku || !*sku)
+		return;
+
 	ruby = strnstr(sku, "ruby", strlen(sku));
 	rubypro = strnstr(sku, "rubypro", strlen(sku));
 	rubyplus = strnstr(sku, "rubyplus", strlen(sku));
@@ -1581,18 +1585,7 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 	case PHY_MODE_USB_DEVICE:
 		tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
 
-		if (product_name == RUBY) {
-			device_property_read_u32(dev, "mediatek,eye-src",
-						&instance->eye_src);
-			device_property_read_u32(dev, "mediatek,eye-vrt",
-						&instance->eye_vrt);
-			device_property_read_u32(dev, "mediatek,eye-term",
-						&instance->eye_term);
-			device_property_read_u32(dev, "mediatek,eye-rev6",
-						&instance->eye_rev6);
-			device_property_read_u32(dev, "mediatek,eye-disc",
-						&instance->eye_disc);
-		} else {
+		if (product_name == RUBYPRO || product_name == RUBYPLUS) {
 			device_property_read_u32(dev, "mediatek,eye-rubyproandplus-src",
 						&instance->eye_src);
 			device_property_read_u32(dev, "mediatek,eye-rubyproandplus-vrt",
@@ -1602,6 +1595,17 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			device_property_read_u32(dev, "mediatek,eye-rubyproandplus-rev6",
 						&instance->eye_rev6);
 			device_property_read_u32(dev, "mediatek,eye-rubyproandplus-disc",
+						&instance->eye_disc);
+		} else {
+			device_property_read_u32(dev, "mediatek,eye-src",
+						&instance->eye_src);
+			device_property_read_u32(dev, "mediatek,eye-vrt",
+						&instance->eye_vrt);
+			device_property_read_u32(dev, "mediatek,eye-term",
+						&instance->eye_term);
+			device_property_read_u32(dev, "mediatek,eye-rev6",
+						&instance->eye_rev6);
+			device_property_read_u32(dev, "mediatek,eye-disc",
 						&instance->eye_disc);
 		}
 		u2_phy_props_set(tphy, instance);
@@ -1615,18 +1619,7 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 		tmp &= ~P2C_RG_SESSEND;
 #endif
 
-		if (product_name == RUBY) {
-			device_property_read_u32(dev, "mediatek,host-eye-src",
-						&instance->eye_src);
-                        device_property_read_u32(dev, "mediatek,host-eye-vrt",
-						&instance->eye_vrt);
-			device_property_read_u32(dev, "mediatek,host-eye-term",
-						&instance->eye_term);
-			device_property_read_u32(dev, "mediatek,host-eye-rev6",
-						&instance->eye_rev6);
-			device_property_read_u32(dev, "mediatek,host-eye-disc",
-						&instance->eye_disc);
-		} else {
+		if (product_name == RUBYPRO || product_name == RUBYPLUS) {
 			device_property_read_u32(dev, "mediatek,host-eye-rubyproandplus-src",
 						&instance->eye_src);
 			device_property_read_u32(dev, "mediatek,host-eye-rubyproandplus-vrt",
@@ -1636,6 +1629,17 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			device_property_read_u32(dev, "mediatek,host-eye-rubyproandplus-rev6",
 						&instance->eye_rev6);
 			device_property_read_u32(dev, "mediatek,host-eye-rubyproandplus-disc",
+						&instance->eye_disc);
+		} else {
+			device_property_read_u32(dev, "mediatek,host-eye-src",
+						&instance->eye_src);
+			device_property_read_u32(dev, "mediatek,host-eye-vrt",
+						&instance->eye_vrt);
+			device_property_read_u32(dev, "mediatek,host-eye-term",
+						&instance->eye_term);
+			device_property_read_u32(dev, "mediatek,host-eye-rev6",
+						&instance->eye_rev6);
+			device_property_read_u32(dev, "mediatek,host-eye-disc",
 						&instance->eye_disc);
 		}
 
@@ -1995,18 +1999,7 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 
 	extcon_parse_cmdline();
 
-	if (product_name == RUBY) {
-		device_property_read_u32(dev, "mediatek,eye-src",
-					&instance->eye_src);
-		device_property_read_u32(dev, "mediatek,eye-vrt",
-					&instance->eye_vrt);
-		device_property_read_u32(dev, "mediatek,eye-term",
-					&instance->eye_term);
-		device_property_read_u32(dev, "mediatek,eye-rev6",
-					&instance->eye_rev6);
-		device_property_read_u32(dev, "mediatek,eye-disc",
-					&instance->eye_disc);
-	} else {
+	if (product_name == RUBYPRO || product_name == RUBYPLUS) {
 		device_property_read_u32(dev, "mediatek,eye-rubyproandplus-src",
 					 &instance->eye_src);
 		device_property_read_u32(dev, "mediatek,eye-rubyproandplus-vrt",
@@ -2017,6 +2010,17 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 					 &instance->eye_rev6);
 		device_property_read_u32(dev, "mediatek,eye-rubyproandplus-disc",
 					 &instance->eye_disc);
+	} else {
+		device_property_read_u32(dev, "mediatek,eye-src",
+					&instance->eye_src);
+		device_property_read_u32(dev, "mediatek,eye-vrt",
+					&instance->eye_vrt);
+		device_property_read_u32(dev, "mediatek,eye-term",
+					&instance->eye_term);
+		device_property_read_u32(dev, "mediatek,eye-rev6",
+					&instance->eye_rev6);
+		device_property_read_u32(dev, "mediatek,eye-disc",
+					&instance->eye_disc);
 	}
 
 	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d, rev6:%d, disc:%d\n",

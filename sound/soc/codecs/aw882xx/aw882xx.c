@@ -69,6 +69,10 @@ static void extcon_parse_cmdline(struct aw882xx *aw882xx)
 {
 	char *ruby = NULL, *rubypro = NULL, *rubyplus = NULL;
 	const char *sku = get_hw_sku();
+
+	if (!sku || !*sku)
+		return;
+
 	aw882xx->product_name = RUBY;
 	ruby = strnstr(sku, "ruby", strlen(sku));
 	rubypro = strnstr(sku, "rubypro", strlen(sku));

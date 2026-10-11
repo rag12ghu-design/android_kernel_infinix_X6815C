@@ -2021,6 +2021,9 @@ static void ln8000_parse_cmdline(struct i2c_client *client)
 	char *ruby = NULL, *rubypro = NULL, *rubyplus = NULL;
 	const char *sku = get_hw_sku();
 
+	if (!sku || !*sku)
+		return;
+
 	ruby = strnstr(sku, "ruby", strlen(sku));
 	rubypro = strnstr(sku, "rubypro", strlen(sku));
 	rubyplus = strnstr(sku, "rubyplus", strlen(sku));

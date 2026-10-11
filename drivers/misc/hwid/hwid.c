@@ -27,19 +27,19 @@
  * Global variable or extern global variabls
  *****************************************************************************/
 
-static char *country;
+static char *country = "";
 module_param(country, charp, 0444);
 MODULE_PARM_DESC(country, "xiaomi country value support");
 
-static char *level;
+static char *level = "";
 module_param(level, charp, 0444);
 MODULE_PARM_DESC(level, "xiaomi level value support");
 
-static char *version;
+static char *version = "";
 module_param(version, charp, 0444);
 MODULE_PARM_DESC(version, "xiaomi version value support");
 
-static char *sku;
+static char *sku = "";
 module_param(sku, charp, 0444);
 MODULE_PARM_DESC(sku, "xiaomi sku value support");
 
@@ -55,7 +55,11 @@ static struct socinfo_v0 {
 	int hw_product_project;
 	int hw_version_major;
 	int hw_version_minor;
-} socinfo;
+} socinfo = {
+	.hw_product_project = -1,
+	.hw_version_major = -1,
+	.hw_version_minor = -1,
+};
 
 static struct kobject *hwid_kobj;
 #define hwid_attr(_name) \
@@ -100,25 +104,25 @@ EXPORT_SYMBOL(get_hw_version_minor);
 static ssize_t hwid_country_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%s\n", country);
+	return snprintf(buf, PAGE_SIZE, "%s\n", country ? country : "");
 }
 
 static ssize_t hwid_level_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%s\n", level);
+	return snprintf(buf, PAGE_SIZE, "%s\n", level ? level : "");
 }
 
 static ssize_t hwid_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%s\n", version);
+	return snprintf(buf, PAGE_SIZE, "%s\n", version ? version : "");
 }
 
 static ssize_t hwid_sku_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%s\n", sku);
+	return snprintf(buf, PAGE_SIZE, "%s\n", sku ? sku : "");
 }
 
 static ssize_t hwid_project_adc_show(struct kobject *kobj,
@@ -135,25 +139,25 @@ static ssize_t hwid_build_adc_show(struct kobject *kobj,
 
 const char *get_hw_country(void)
 {
-	return country;
+	return country ? country : "";
 }
 EXPORT_SYMBOL(get_hw_country);
 
 const char *get_hw_level(void)
 {
-	return level;
+	return level ? level : "";
 }
 EXPORT_SYMBOL(get_hw_level);
 
 const char *get_hw_version(void)
 {
-	return version;
+	return version ? version : "";
 }
 EXPORT_SYMBOL(get_hw_version);
 
 const char *get_hw_sku(void)
 {
-	return sku;
+	return sku ? sku : "";
 }
 EXPORT_SYMBOL(get_hw_sku);
 
@@ -198,7 +202,7 @@ static int __init hwid_module_init(void)
 	}
 
 	socinfo_struct_init();
-	if (version) {
+	if (version && *version) {
 		int n = sscanf(version, "%d.%d.%d", &socinfo.hw_product_project, &socinfo.hw_version_major, &socinfo.hw_version_minor);
 		if (n == 3) {
 			pr_info("%s hw_product_project = %d,hw_version_major = %d, hw_version_minor = %d\n", \
@@ -210,8 +214,10 @@ static int __init hwid_module_init(void)
 	} else {
 		pr_info("%s can not get hwversion info from hwid\n", TAG);
 	}
+
+	return 0;
 sys_fail:
-	kobject_del(hwid_kobj);
+	kobject_put(hwid_kobj);
 fail:
 	return ret;
 }
@@ -223,7 +229,7 @@ static void __exit hwid_module_exit(void)
 {
 	if (hwid_kobj) {
 		sysfs_remove_group(hwid_kobj, &attr_group);
-		kobject_del(hwid_kobj);
+		kobject_put(hwid_kobj);
 	}
 	pr_info("hwid: hwid module exit success\n");
 }

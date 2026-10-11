@@ -1421,6 +1421,9 @@ static void bq25980_parse_cmdline(void)
 	char *ruby = NULL, *rubypro = NULL, *rubyplus = NULL;
 	const char *sku = get_hw_sku();
 
+	if (!sku || !*sku)
+		return;
+
 	ruby = strnstr(sku, "ruby", strlen(sku));
 	rubypro = strnstr(sku, "rubypro", strlen(sku));
 	rubyplus = strnstr(sku, "rubyplus", strlen(sku));
