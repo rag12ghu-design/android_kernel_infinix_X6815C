@@ -144,3 +144,5 @@ all.config
 *.zip
 build*.log
 validation.log
+x6815c-port/out-x6815c/
+x6815c-port/release-assets/
