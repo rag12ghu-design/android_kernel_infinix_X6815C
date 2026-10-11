@@ -56,8 +56,10 @@ def unpack_boot(boot_path, out_dir):
     dtb_out = os.path.join(out_dir, "dtb.img")
 
     with open(k_out, "wb") as f: f.write(k_data)
+    with open(os.path.join(out_dir, "Image.gz"), "wb") as f: f.write(k_data)
     with open(r_out, "wb") as f: f.write(r_data)
     with open(dtb_out, "wb") as f: f.write(dtb_data)
+    with open(os.path.join(out_dir, "mt6877.dtb"), "wb") as f: f.write(dtb_data)
 
     print(f"[+] Extracted components to {out_dir}")
     print(f"    Kernel:  {len(k_data)} bytes -> SHA256: {hashlib.sha256(k_data).hexdigest()}")

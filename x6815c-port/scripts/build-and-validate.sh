@@ -15,16 +15,42 @@ echo "[*] Source:     $SRC"
 echo "[*] Output:     $OUT"
 echo "[*] Slot B Ref: $SLOT_B"
 
-# Step 1: Ensure Slot B reference artifacts exist
-if [[ ! -f "$SLOT_B/mt6877.dtb" || ! -f "$SLOT_B/ramdisk.img" ]]; then
-    echo "[!] Extracting Slot B reference artifacts..."
-    python3 "$REPO_ROOT/tools/repack-boot.py" unpack \
-        "/mnt/c/Users/Jim/Downloads/x6815c-inactive-slot-20261011T085849Z/boot_b.img" \
-        --out "$SLOT_B"
+AVBTOOL="${AVBTOOL:-}"
+if [[ -z "$AVBTOOL" ]]; then
+    if [[ -f "$REPO_ROOT/tools/avbtool.py" ]]; then
+        AVBTOOL="$REPO_ROOT/tools/avbtool.py"
+    else
+        AVBTOOL="$REPO_ROOT/avbtool.py"
+    fi
 fi
 
+# Step 1: Ensure Slot B reference artifacts exist
+if [[ ! -f "$SLOT_B/mt6877.dtb" && ! -f "$SLOT_B/dtb.img" ]] || [[ ! -f "$SLOT_B/ramdisk.img" ]]; then
+    echo "[!] Extracting Slot B reference artifacts..."
+    BOOT_B_CANDIDATE=""
+    for candidate in "${BOOT_B:-}" \
+                     "$REPO_ROOT/reference-slot-b/boot_b.img" \
+                     /mnt/c/Users/*/Downloads/x6815c-inactive-slot-*/boot_b.img \
+                     /mnt/c/Users/*/Downloads/x6815c-inactive-slot-*/*/boot_b.img \
+                     "/mnt/c/Users/Jim/Downloads/x6815c-inactive-slot-20261011T085849Z/boot_b.img"; do
+        if [[ -n "$candidate" && -f "$candidate" ]]; then
+            BOOT_B_CANDIDATE="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$BOOT_B_CANDIDATE" ]]; then
+        echo "[-] Error: boot_b.img not found! Set BOOT_B=/path/to/boot_b.img" >&2
+        exit 1
+    fi
+    echo "[*] Using Slot B boot image: $BOOT_B_CANDIDATE"
+    python3 "$REPO_ROOT/tools/repack-boot.py" unpack "$BOOT_B_CANDIDATE" --out "$SLOT_B"
+fi
+
+DTB_FILE="$SLOT_B/mt6877.dtb"
+[[ -f "$DTB_FILE" ]] || DTB_FILE="$SLOT_B/dtb.img"
+
 echo "[+] Verified pristine Slot B artifacts:"
-echo "    DTB:     $(sha256sum "$SLOT_B/mt6877.dtb" | awk '{print $1}')"
+echo "    DTB:     $(sha256sum "$DTB_FILE" | awk '{print $1}')"
 echo "    Ramdisk: $(sha256sum "$SLOT_B/ramdisk.img" | awk '{print $1}')"
 
 # Step 2: Build Environment
@@ -50,7 +76,11 @@ if [[ -d "$SRC" && -f "$SRC/Makefile" ]]; then
     SYMVERS="$OUT/Module.symvers"
 else
     echo "[*] Using stock Slot B reference kernel for validation run..."
-    KERNEL_GZ="$SLOT_B/Image.gz"
+    if [[ -f "$SLOT_B/Image.gz" ]]; then
+        KERNEL_GZ="$SLOT_B/Image.gz"
+    else
+        KERNEL_GZ="$SLOT_B/kernel.gz"
+    fi
     SYMVERS="$OUT/Module.symvers"
 fi
 
@@ -70,12 +100,12 @@ echo "[*] Assembling Android Boot Header v2 with pristine Slot B Ramdisk & DTB..
 python3 "$REPO_ROOT/tools/repack-boot.py" pack \
     --kernel "$KERNEL_GZ" \
     --ramdisk "$SLOT_B/ramdisk.img" \
-    --dtb "$SLOT_B/mt6877.dtb" \
+    --dtb "$DTB_FILE" \
     --out "$BOOT_OUT" \
-    --avbtool "$REPO_ROOT/avbtool.py"
+    --avbtool "$AVBTOOL"
 
 echo "[*] Verifying AVB footer and partition integrity..."
-python3 "$REPO_ROOT/avbtool.py" info_image --image "$BOOT_OUT"
+python3 "$AVBTOOL" info_image --image "$BOOT_OUT"
 
 echo
 echo "=================================================================="
