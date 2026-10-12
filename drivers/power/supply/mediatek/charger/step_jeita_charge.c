@@ -79,6 +79,9 @@ static void monitor_sw_cv(struct charger_manager *info)
 	int ibat = 0;
 	bool is_fast_type = false;
 
+	if (!info || info->step_jeita_tuple_count <= 0)
+		return;
+
 	if (info->qc3_type || info->psy_type == POWER_SUPPLY_TYPE_USB_PD)
 		is_fast_type = true;
 	else
@@ -127,6 +130,9 @@ static void monitor_usb_otg_burn(struct work_struct *work)
 	int type_temp = 0, pmic_vbus = 0;
 	union power_supply_propval pval = {0,};
 
+	if (!info || !info->usb_psy)
+		return;
+
 	power_supply_get_property(info->usb_psy, POWER_SUPPLY_PROP_CONNECTOR_TEMP, &pval);
 	type_temp = pval.intval;
 	power_supply_get_property(info->usb_psy, POWER_SUPPLY_PROP_PMIC_VBUS, &pval);
@@ -161,6 +167,9 @@ static void monitor_typec_burn(struct charger_manager *info)
 	int type_temp = 0, retry_count = 10, real_type = 0;
 	bool cp_master_enable = false, cp_slave_enable = false;
 
+	if (!info || !info->usb_psy)
+		return;
+
 	if (!gpio_is_valid(info->vbus_control_gpio) && product_name == RUBYPRO)
 		return;
 
@@ -175,7 +184,7 @@ static void monitor_typec_burn(struct charger_manager *info)
 		info->typec_burn_flag = 1;
 		chr_info("typec burn temp = %d\n",type_temp);
 	} else if ((product_name == RUBYPLUS || product_name == RUBY) && type_temp > TYPEC_BURN_TEMP && info->typec_burn_flag != 2) {
-		if (!info->typec_burn_wakelock->active)
+		if (info->typec_burn_wakelock && !info->typec_burn_wakelock->active)
 			__pm_stay_awake(info->typec_burn_wakelock);
 		info->typec_burn = true;
 		while (retry_count) {
@@ -204,11 +213,12 @@ static void monitor_typec_burn(struct charger_manager *info)
 		vote(info->bbc_icl_votable, TYPEC_BURN_VOTER, false, 0);
 		vote(info->bbc_en_votable, TYPEC_BURN_VOTER, true, 1);
 		vote(info->bbc_suspend_votable, TYPEC_BURN_VOTER, false, 0);
-		__pm_relax(info->typec_burn_wakelock);
+		if (info->typec_burn_wakelock)
+			__pm_relax(info->typec_burn_wakelock);
 	}
 
 	if (product_name == RUBYPRO && type_temp >= TYPEC_BURN_TEMP && info->typec_burn_flag != 4) {
-		if (!info->typec_burn_wakelock->active)
+		if (info->typec_burn_wakelock && !info->typec_burn_wakelock->active)
 			__pm_stay_awake(info->typec_burn_wakelock);
 		info->typec_burn = true;
 		while (retry_count) {
@@ -237,7 +247,8 @@ static void monitor_typec_burn(struct charger_manager *info)
 		chr_info("typec burn temp = %d\n",type_temp);
 		vote(info->bbc_icl_votable, TYPEC_BURN_VOTER, false, 0);
 		vote(info->bbc_en_votable, TYPEC_BURN_VOTER, true, 1);
-		__pm_relax(info->typec_burn_wakelock);
+		if (info->typec_burn_wakelock)
+			__pm_relax(info->typec_burn_wakelock);
 	}
 }
 
@@ -430,7 +441,8 @@ static void check_full_recharge(struct charger_manager *info)
 			info->cp_taper = false;
 			recharge_count = 0;
 			vote(info->bbc_en_votable, FULL_ENABLE_VOTER, true, 1);
-			power_supply_changed(info->usb_psy);
+			if (info->usb_psy)
+				power_supply_changed(info->usb_psy);
 			chr_err("%s: start recharge\n", __func__);
 		}
 	} else {
@@ -523,7 +535,8 @@ static void check_full_recharge(struct charger_manager *info)
 			info->recharge = false;
 			full_count = 0;
 			vote(info->bbc_en_votable, FULL_ENABLE_VOTER, true, 0);
-			power_supply_changed(info->usb_psy);
+			if (info->usb_psy)
+				power_supply_changed(info->usb_psy);
 			chr_err("%s: report charge_full\n", __func__);
 		}
 	}

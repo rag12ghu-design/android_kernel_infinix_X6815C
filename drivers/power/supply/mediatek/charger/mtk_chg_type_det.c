@@ -404,12 +404,15 @@ static int mt_charger_set_property(struct power_supply *psy,
 		return 0;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		mtk_chg->chg_type = val->intval;
-		if (mtk_chg->chg_type != CHARGER_UNKNOWN)
-			charger_manager_force_disable_power_path(
-				cti->chg_consumer, MAIN_CHARGER, false);
-		else if ((!cti->tcpc_kpoc) && (product_name != RUBYPLUS))
-			charger_manager_force_disable_power_path(
-				cti->chg_consumer, MAIN_CHARGER, true);
+		if (mtk_chg->chg_type != CHARGER_UNKNOWN) {
+			if (cti->chg_consumer && cti->chg_consumer->cm)
+				charger_manager_force_disable_power_path(
+					cti->chg_consumer, MAIN_CHARGER, false);
+		} else if ((!cti->tcpc_kpoc) && (product_name != RUBYPLUS)) {
+			if (cti->chg_consumer && cti->chg_consumer->cm)
+				charger_manager_force_disable_power_path(
+					cti->chg_consumer, MAIN_CHARGER, true);
+		}
 		break;
 	default:
 		return -EINVAL;

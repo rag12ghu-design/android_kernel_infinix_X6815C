@@ -356,7 +356,7 @@ void _wake_up_charger(struct charger_manager *info)
 		return;
 
 	spin_lock_irqsave(&info->slock, flags);
-	if (!info->charger_wakelock->active)
+	if (info->charger_wakelock && !info->charger_wakelock->active)
 		__pm_stay_awake(info->charger_wakelock);
 	spin_unlock_irqrestore(&info->slock, flags);
 	info->charger_thread_timeout = true;
@@ -408,12 +408,12 @@ EXPORT_SYMBOL(charger_manager_get_by_name);
 int charger_manager_enable_high_voltage_charging(
 			struct charger_consumer *consumer, bool en)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	struct list_head *pos = NULL;
 	struct list_head *phead = &consumer_head;
 	struct charger_consumer *ptr = NULL;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EINVAL;
 
 	pr_debug("[%s] %s, %d\n", __func__, dev_name(consumer->dev), en);
@@ -460,7 +460,7 @@ int charger_manager_enable_power_path(struct charger_consumer *consumer,
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	struct charger_device *chg_dev = NULL;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EINVAL;
 
 	switch (idx) {
@@ -506,7 +506,7 @@ int charger_manager_force_disable_power_path(struct charger_consumer *consumer,
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	struct charger_device *chg_dev = NULL;
 	int ret = 0;
-	if (info == NULL)
+	if (!consumer || !info)
 		return -ENODEV;
 	switch (idx) {
 	case MAIN_CHARGER:
@@ -537,7 +537,12 @@ out:
 static int _charger_manager_enable_charging(struct charger_consumer *consumer,
 	int idx, bool en)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info;
+
+	if (!consumer || !consumer->cm)
+		return -EINVAL;
+
+	info = consumer->cm;
 
 	chr_err("%s: dev:%s idx:%d en:%d\n", __func__, dev_name(consumer->dev),
 		idx, en);
@@ -578,7 +583,7 @@ int charger_manager_enable_charging(struct charger_consumer *consumer,
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	int ret = 0;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EAGAIN;
 
 	mutex_lock(&info->charger_lock);
@@ -591,6 +596,9 @@ int charger_manager_get_input_current_limit(struct charger_consumer *consumer,
 	int idx, int *input_current)
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!consumer || !info)
+		return -EBUSY;
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -613,6 +621,9 @@ int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 	int idx, int input_current)
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!consumer || !info)
+		return -EBUSY;
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -653,6 +664,9 @@ int charger_manager_set_charging_current_limit(
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
+	if (!consumer || !info)
+		return -EBUSY;
+
 	if (info != NULL) {
 		struct charger_data *pdata;
 
@@ -677,6 +691,9 @@ int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 	int idx, int *tchg_min,	int *tchg_max)
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!consumer || !info)
+		return -EBUSY;
 
 	if (info != NULL) {
 		struct charger_data *pdata = NULL;
@@ -712,6 +729,9 @@ int charger_manager_force_charging_current(struct charger_consumer *consumer,
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
+	if (!consumer || !info)
+		return -EBUSY;
+
 	if (info != NULL) {
 		struct charger_data *pdata = NULL;
 
@@ -733,6 +753,9 @@ int charger_manager_force_charging_current(struct charger_consumer *consumer,
 int charger_manager_get_current_charging_type(struct charger_consumer *consumer)
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!consumer || !info)
+		return 0;
 
 	if (info != NULL) {
 		if (mtk_pe20_get_is_connect(info))
@@ -835,7 +858,8 @@ void charger_manager_set_input_suspend(bool input_suspend)
 	      vote(pinfo->bbc_suspend_votable, BAT_SUSPEND_VOTER, true, 1);
 	else
 	      vote(pinfo->bbc_suspend_votable, BAT_SUSPEND_VOTER, false, 0);
-	power_supply_changed(pinfo->usb_psy);
+	if (pinfo->usb_psy)
+		power_supply_changed(pinfo->usb_psy);
 }
 
 #define MAX_NOTCHARGE_IBAT	20
@@ -902,7 +926,7 @@ int charger_manager_get_zcv(struct charger_consumer *consumer, int idx, u32 *uV)
 	struct charger_device *pchg = NULL;
 	int ret = 0;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EINVAL;
 
 
@@ -929,7 +953,7 @@ int charger_manager_enable_sc(struct charger_consumer *consumer,
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EAGAIN;
 
 	chr_err("%s en:%d %d %d\n", __func__,
@@ -946,7 +970,7 @@ int charger_manager_set_sc_current_limit(struct charger_consumer *consumer,
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EAGAIN;
 
 	chr_err("%s %d\n", __func__,
@@ -961,7 +985,7 @@ int charger_manager_set_bh(struct charger_consumer *consumer,
 {
 	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
-	if (!info)
+	if (!consumer || !info)
 		return -EAGAIN;
 
 	chr_err("%s %d\n", __func__,
@@ -2057,7 +2081,8 @@ static void check_cv_vbus(struct charger_manager *info)
 				charger_dev_select_qc_mode(info->chg2_dev, QC_MODE_QC2_5);
 				vote(info->bbc_suspend_votable, CV_WA_VOTER, false, 0);
 			} else if (info->psy_type == POWER_SUPPLY_TYPE_USB_PD) {
-				power_supply_changed(info->usb_psy);
+				if (info->usb_psy)
+					power_supply_changed(info->usb_psy);
 			}
 		}
 		if (info->vbat > (info->jeita_fv_cfg[info->jeita_chg_index[0]].value - 100)) {
@@ -2076,11 +2101,13 @@ static void update_real_type_data(struct charger_manager *info)
 	union power_supply_propval real_type = {0,};
 	union power_supply_propval pval = {0,};
 
-	ret = power_supply_get_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
-	if (ret)
-		chr_err("failed to get mtk charger type\n");
-	else
-		info->chr_type = pval.intval;
+	if (info->charger_psy) {
+		ret = power_supply_get_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+		if (ret)
+			chr_err("failed to get mtk charger type\n");
+		else
+			info->chr_type = pval.intval;
+	}
 
 	chr_err("%s: %d\n", __func__, info->chr_type);
 
@@ -2088,8 +2115,10 @@ static void update_real_type_data(struct charger_manager *info)
 		if(real_type_old != POWER_SUPPLY_TYPE_UNKNOWN)
 		{
 			real_type.intval = POWER_SUPPLY_TYPE_UNKNOWN;
-			power_supply_set_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
-			power_supply_changed(info->usb_psy);
+			if (info->usb_psy) {
+				power_supply_set_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
+				power_supply_changed(info->usb_psy);
+			}
 		}
 		real_type_old = POWER_SUPPLY_TYPE_UNKNOWN;
 		return;
@@ -2227,8 +2256,10 @@ static void update_real_type_data(struct charger_manager *info)
 
 	if(real_type_old != real_type.intval){
 		real_type_old = real_type.intval;
-		power_supply_set_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
-		power_supply_changed(info->usb_psy);
+		if (info->usb_psy) {
+			power_supply_set_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
+			power_supply_changed(info->usb_psy);
+		}
 		chr_err("%s,update real type to %d\n",__func__, real_type_old);
 	}
 
@@ -2392,7 +2423,8 @@ static void check_charge_data(struct charger_manager *info)
 
 	if (info->pp_enable == !!get_effective_result(info->bbc_suspend_votable)) {
 		rerun_election(info->bbc_suspend_votable);
-		power_supply_changed(info->usb_psy);
+		if (info->usb_psy)
+			power_supply_changed(info->usb_psy);
 	}
 
 	chr_info("[CHARGE_LOOP]TYPE = [%d %d %d %d %d], BUS = [%d %d], BAT = [%d %d %d %d %d %d], BBC = [%d %d %d %d %d], TL_SJ = [%d %d %d %d], TEMP = [%d %d %d], FFC = [%d %d], COUNT = [%d %d]\n",
@@ -2956,7 +2988,7 @@ static enum alarmtimer_restart
 	} else {
 		chr_err("%s: alarm timer timeout\n", __func__);
 		spin_lock_irqsave(&info->slock, flags);
-		if (!info->charger_wakelock->active)
+		if (info->charger_wakelock && !info->charger_wakelock->active)
 			__pm_stay_awake(info->charger_wakelock);
 		spin_unlock_irqrestore(&info->slock, flags);
 	}
@@ -3099,7 +3131,7 @@ static int charger_routine_thread(void *arg)
 
 		mutex_lock(&info->charger_lock);
 		spin_lock_irqsave(&info->slock, flags);
-		if (!info->charger_wakelock->active)
+		if (info->charger_wakelock && !info->charger_wakelock->active)
 			__pm_stay_awake(info->charger_wakelock);
 		spin_unlock_irqrestore(&info->slock, flags);
 
@@ -3142,7 +3174,8 @@ static int charger_routine_thread(void *arg)
 			chr_debug("disable charging\n");*/
 
 		spin_lock_irqsave(&info->slock, flags);
-		__pm_relax(info->charger_wakelock);
+		if (info->charger_wakelock)
+			__pm_relax(info->charger_wakelock);
 		spin_unlock_irqrestore(&info->slock, flags);
 		chr_debug("%s end , %d\n",
 			__func__, info->charger_thread_timeout);
