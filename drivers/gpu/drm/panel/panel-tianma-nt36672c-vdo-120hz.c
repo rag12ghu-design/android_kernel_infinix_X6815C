@@ -160,16 +160,18 @@ static void tianma_dcs_write(struct tianma *ctx, const void *data, size_t len)
 static void tianma_panel_init(struct tianma *ctx)
 {
 	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	usleep_range(10 * 1000, 15 * 1000);
-	gpiod_set_value(ctx->reset_gpio, 0);
-	udelay(11 * 1000);
-	gpiod_set_value(ctx->reset_gpio, 1);
-	udelay(5 * 1000);
-	gpiod_set_value(ctx->reset_gpio, 0);
-	udelay(5 * 1000);
-	gpiod_set_value(ctx->reset_gpio, 1);
-	udelay(13 * 1000);
-	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+	if (!IS_ERR(ctx->reset_gpio)) {
+		usleep_range(10 * 1000, 15 * 1000);
+		gpiod_set_value(ctx->reset_gpio, 0);
+		udelay(11 * 1000);
+		gpiod_set_value(ctx->reset_gpio, 1);
+		udelay(5 * 1000);
+		gpiod_set_value(ctx->reset_gpio, 0);
+		udelay(5 * 1000);
+		gpiod_set_value(ctx->reset_gpio, 1);
+		udelay(13 * 1000);
+		devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+	}
 
 	tianma_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	tianma_dcs_write_seq_static(ctx, 0xFB, 0x01);
@@ -429,8 +431,10 @@ static int tianma_unprepare(struct drm_panel *panel)
 	msleep(200);
 
 	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->reset_gpio, 0);
-	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+	if (!IS_ERR(ctx->reset_gpio)) {
+		gpiod_set_value(ctx->reset_gpio, 0);
+		devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+	}
 
 	ctx->error = 0;
 	ctx->prepared = false;
@@ -740,10 +744,19 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 
 static int panel_ext_reset(struct drm_panel *panel, int on)
 {
-	struct tianma *ctx = panel_to_tianma(panel);
+	struct tianma *ctx;
+
+	if (!panel)
+		return -EINVAL;
+
+	ctx = panel_to_tianma(panel);
+	if (!ctx || !ctx->dev)
+		return -EINVAL;
 
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->reset_gpio))
+		return PTR_ERR(ctx->reset_gpio);
 	gpiod_set_value(ctx->reset_gpio, on);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 

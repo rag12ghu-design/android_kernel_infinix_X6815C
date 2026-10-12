@@ -578,9 +578,11 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	if (*enabled) {
 #ifdef CONFIG_MTK_DRE30_SUPPORT
 		mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		if (comp && comp->mtk_crtc)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
 #else
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		if (comp && comp->mtk_crtc)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
 #endif
 	}
 
@@ -618,7 +620,7 @@ void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	if (aal_sram_method != AAL_SRAM_SOF)
 		return;
 
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 		if (comp->id == DDP_COMPONENT_AAL0) {
 			if (atomic_read(&g_aal_dre_config) == 1) {
 				AALFLOW_LOG("[SRAM] %s g_aal_dre_config not 0 in %s",
@@ -687,7 +689,7 @@ void disp_aal_first_flip_sram(struct mtk_ddp_comp *comp,
 
 	if (aal_sram_method != AAL_SRAM_SOF)
 		return;
-	if ((comp->mtk_crtc->is_dual_pipe)) {
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 		if (comp->id == DDP_COMPONENT_AAL0) {
 			if (atomic_cmpxchg(&g_aal_force_hist_apb, 0, 1) == 0) {
 				hist_apb = 0;
@@ -855,7 +857,7 @@ static bool disp_aal_read_single_hist(struct mtk_ddp_comp *comp)
 		((comp->id == DDP_COMPONENT_AAL1) && (atomic_read(&g_aal1_eof_irq) == 0)))
 		return false;
 
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 		if (comp->id == DDP_COMPONENT_AAL0) {
 			for (i = 0; i < AAL_HIST_BIN; i++) {
 				g_aal_hist.aal0_maxHist[i] = readl(comp->regs +
@@ -1719,7 +1721,7 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 		if (dump_start >= 0 && arry_offset >= dump_start
 			&& arry_offset < (dump_start + 6))
 			dump_table[arry_offset-dump_start] = read_value;
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 			if (comp->id == DDP_COMPONENT_AAL0)
 				g_aal_dre30_hist.aal0_dre_hist[arry_offset++] = read_value;
 			else if (comp->id == DDP_COMPONENT_AAL1)
@@ -1728,7 +1730,7 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 			g_aal_dre30_hist.aal0_dre_hist[arry_offset++] = read_value;
 		}
 	}
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 		int i = 0, j = 0;
 
 		if (comp->id == DDP_COMPONENT_AAL0) {
@@ -1805,7 +1807,7 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 		hist_int = (read_value >> 6) & 0x1;
 		AALIRQ_LOG("[SRAM] hist_apb(%d) hist_int(%d) 0x%08x in (SOF) compID:%d",
 			hist_apb, hist_int, read_value, comp->id);
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 			if (comp->id == DDP_COMPONENT_AAL1) {
 				if (hist_int != atomic_read(&g_aal1_force_hist_apb)) {
 					AALIRQ_LOG("dre3 aal1: SRAM config %d != %d config?",
@@ -1847,7 +1849,7 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 		if (result) {
 			g_aal_dre30_hist.dre_blk_x_num = dre_blk_x_num;
 			g_aal_dre30_hist.dre_blk_y_num = dre_blk_y_num;
-			if (comp->mtk_crtc->is_dual_pipe) {
+			if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 				if (comp->id == DDP_COMPONENT_AAL0)
 					atomic_set(&g_aal0_hist_available, 1);
 				else if (comp->id == DDP_COMPONENT_AAL1)
@@ -1859,7 +1861,7 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 		if (result) {
 			AALIRQ_LOG("wake_up_interruptible");
 			wake_up_interruptible(&g_aal_hist_wq);
-		} else if (!(comp->mtk_crtc->is_dual_pipe)) {
+		} else if (!comp->mtk_crtc || !(comp->mtk_crtc->is_dual_pipe)) {
 			if (atomic_read(&g_aal_first_frame) == 1) {
 				AALIRQ_LOG("single pipe g_aal_first_frame[1] queue_work");
 				queue_work(aal_flip_wq, &g_aal_data->aal_flip_task);
@@ -1962,7 +1964,7 @@ static void ddp_aal_dre3_write_curve_full(struct mtk_ddp_comp *comp)
 	mtk_aal_write_mask(dre3_va + DISP_AAL_SRAM_CFG,
 		(0 << 6)|(1 << 5)|(1 << 4), (0x7 << 4));
 	disp_aal_write_dre3(comp);
-	if (comp->mtk_crtc->is_dual_pipe && comp->id == DDP_COMPONENT_AAL1)
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe && comp->id == DDP_COMPONENT_AAL1)
 		atomic_set(&g_aal1_force_hist_apb, 0);
 	else
 		atomic_set(&g_aal_force_hist_apb, 0);
@@ -2108,13 +2110,13 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 			read_success = disp_aal_read_single_hist(comp);
 
 			if (read_success == true) {
-				if (comp->mtk_crtc->is_dual_pipe) {
+				if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 					if (comp->id == DDP_COMPONENT_AAL0)
 						atomic_set(&g_aal0_hist_available, 1);
 					else if (comp->id == DDP_COMPONENT_AAL1)
 						atomic_set(&g_aal1_hist_available, 1);
-				} else
-					atomic_set(&g_aal0_hist_available, 1);
+			} else
+				atomic_set(&g_aal0_hist_available, 1);
 			}
 
 			spin_unlock_irqrestore(&g_aal_hist_lock, flags);
@@ -2682,6 +2684,11 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 	//For 120Hz rotation issue
 	do_gettimeofday(&start);
 
+	if (!comp || !comp->mtk_crtc) {
+		disp_aal_clear_irq(comp, true);
+		return;
+	}
+
 	if (comp->id == DDP_COMPONENT_AAL0)
 		atomic_set(&g_aal_eof_irq, 1);
 	if (comp->id == DDP_COMPONENT_AAL1)
@@ -2728,7 +2735,12 @@ void disp_aal_on_start_of_frame(void)
 {
 #ifdef CONFIG_MTK_DRE30_SUPPORT
 	unsigned long flags;
-	struct mtk_disp_aal *aal_data = comp_to_aal(default_comp);
+	struct mtk_disp_aal *aal_data;
+
+	if (!default_comp || !default_comp->mtk_crtc)
+		return;
+
+	aal_data = comp_to_aal(default_comp);
 
 	if (atomic_read(&g_aal_force_relay) == 1 &&
 		!m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])

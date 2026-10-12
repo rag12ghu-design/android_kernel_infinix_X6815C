@@ -119,10 +119,16 @@ static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 {
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_private *priv;
 	struct mtk_ddp_comp *output_comp;
-	int index = drm_crtc_index(crtc);
+	int index;
 	bool mode;
+
+	if (!crtc || !crtc->dev)
+		return;
+
+	priv = crtc->dev->dev_private;
+	index = drm_crtc_index(crtc);
 
 	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
 
@@ -148,10 +154,16 @@ static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 
 static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
 {
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_private *priv;
 	struct mtk_ddp_comp *output_comp;
-	int index = drm_crtc_index(crtc);
+	int index;
 	bool mode;
+
+	if (!crtc || !crtc->dev)
+		return;
+
+	priv = crtc->dev->dev_private;
+	index = drm_crtc_index(crtc);
 
 	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
 
@@ -479,13 +491,21 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 
 int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_idlemgr *idlemgr =
-		kzalloc(sizeof(struct mtk_drm_idlemgr), GFP_KERNEL);
-	struct mtk_drm_idlemgr_context *idlemgr_ctx =
-		kzalloc(sizeof(struct mtk_drm_idlemgr_context), GFP_KERNEL);
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_idlemgr *idlemgr;
+	struct mtk_drm_idlemgr_context *idlemgr_ctx;
 	const int len = 50;
 	char name[len];
+
+	if (!crtc)
+		return -EINVAL;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc)
+		return -EINVAL;
+
+	idlemgr = kzalloc(sizeof(struct mtk_drm_idlemgr), GFP_KERNEL);
+	idlemgr_ctx = kzalloc(sizeof(struct mtk_drm_idlemgr_context), GFP_KERNEL);
 
 	if (!idlemgr) {
 		DDPPR_ERR("struct mtk_drm_idlemgr allocate fail\n");
