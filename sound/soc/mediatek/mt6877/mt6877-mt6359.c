@@ -162,6 +162,7 @@ static int analog_usb_typec_event_setup(struct platform_device *platform_device)
 
 err_data:
 	devm_kfree(&platform_device->dev, g_usbc_priv);
+	g_usbc_priv = NULL;
 	return rc;
 }
 #endif
@@ -1333,14 +1334,14 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 		if (ret < 0) {
 			dev_err(&pdev->dev,
 				"i2s out get_dai_link_codecs fail\n");
-			return -EINVAL;
+			return ret;
 		}
 		ret = snd_soc_of_get_dai_link_codecs(
 				&pdev->dev, spk_node, spk_iv_dai_link);
 		if (ret < 0) {
 			dev_err(&pdev->dev,
 				"i2s in get_dai_link_codecs fail\n");
-			return -EINVAL;
+			return ret;
 		}
 #endif
 	}
