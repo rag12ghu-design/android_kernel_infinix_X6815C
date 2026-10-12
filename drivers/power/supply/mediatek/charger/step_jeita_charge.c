@@ -36,6 +36,11 @@ static void get_index(struct step_jeita_cfg0 *cfg, int fallback_hyst, int forwar
 {
 	int new_index = 0, i = 0;
 
+	if (!cfg || step_jeita_tuple_count <= 0) {
+		index[0] = index[1] = 0;
+		return;
+	}
+
 	if (value < cfg[0].low_threshold) {
 		index[0] = index[1] = 0;
 		return;
@@ -84,7 +89,7 @@ static void monitor_sw_cv(struct charger_manager *info)
 		info->sw_cv = info->step_chg_cfg[info->step_chg_index[0]].low_threshold + info->step_forward_hyst;
 	}
 
-	if (info->sw_cv) {
+	if (info->sw_cv && info->bms_psy) {
 		power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
 		ibat = pval.intval / 1000;
 		if ((is_fast_type && (-ibat) <= info->step_chg_fcc && (-ibat) >= 400) || (!is_fast_type && (-ibat) <= info->step_chg_fcc)) {
@@ -241,6 +246,9 @@ static void handle_jeita_charge(struct charger_manager *info)
 	static bool out_jeita = false;
 	static bool jeita_vbat_low = true;
 
+	if (!info || info->step_jeita_tuple_count <= 0)
+		return;
+
 	/*The high temperature drops to 48 degrees to stop charging, need to remove compensation, temp drop to 46 set fv*/
 	if (info->tbat > 459) {
 		info->jeita_fallback_hyst = 10;
@@ -312,6 +320,9 @@ static void handle_jeita_charge(struct charger_manager *info)
 
 static void handle_step_charge(struct charger_manager *info)
 {
+	if (!info || info->step_jeita_tuple_count <= 0)
+		return;
+
 	get_index(info->step_chg_cfg, info->step_fallback_hyst, info->step_forward_hyst, info->step_jeita_tuple_count, info->vbat, info->step_chg_index, false);
 
 	if (info->step_chg_index[0] == info->step_jeita_tuple_count - 1)
@@ -351,7 +362,8 @@ static int handle_ffc_charge(struct charger_manager *info)
 	pval.intval = info->ffc_enable ? 1 : 0;
 	vote(info->bbc_fv_votable, FFC_VOTER, true, info->fv_effective);
 	vote(info->bbc_iterm_votable, FFC_VOTER, true, info->iterm_effective);
-	power_supply_set_property(info->bms_psy, POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+	if (info->bms_psy)
+		power_supply_set_property(info->bms_psy, POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
 
 	return ret;
 }
@@ -521,6 +533,10 @@ static void monitor_thermal_limit(struct charger_manager *info)
 {
 	int thermal_level = 0;
 	union power_supply_propval pval = {0,};
+
+	if (!info || !info->usb_psy)
+		return;
+
 	power_supply_get_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &pval);
 	info->psy_type = pval.intval;
 
@@ -599,6 +615,9 @@ static void quick_update_battery_info(struct charger_manager *info)
 	union power_supply_propval pval = {0,};
 	int ret = 0;
 
+	if (!info || !info->bms_psy)
+		return;
+
 	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
 	if (ret)
 		chr_err("failed to get vbat\n");
@@ -661,6 +680,9 @@ static void max_power_func(struct work_struct *work)
 static void charge_monitor_func(struct work_struct *work)
 {
 	struct charger_manager *info = container_of(work, struct charger_manager, charge_monitor_work.work);
+
+	if (!info || info->step_jeita_tuple_count <= 0)
+		return;
 
 	quick_update_battery_info(info);
 
@@ -759,6 +781,9 @@ static void check_cycle_count_status(struct charger_manager *info, bool farce_up
 	bool update = false;
 	int ret = 0;
 
+	if (!info || !info->bms_psy)
+		return;
+
 	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &pval);
 	if (ret && !farce_update) {
 		chr_err("failed to get cycle_count\n");
@@ -811,6 +836,9 @@ static void check_cycle_count_status(struct charger_manager *info, bool farce_up
 
 void reset_mi_charge_alg(struct charger_manager *info)
 {
+	if (!info || info->step_jeita_tuple_count <= 0)
+		return;
+
 	get_index(info->step_chg_cfg, info->step_fallback_hyst, info->step_forward_hyst, info->step_jeita_tuple_count, info->vbat, info->step_chg_index, true);
 	info->step_chg_fcc = info->step_chg_cfg[info->step_chg_index[0]].value;
 	vote(info->bbc_fcc_votable, STEP_CHARGE_VOTER, true, info->step_chg_fcc);
@@ -841,6 +869,11 @@ int step_jeita_init(struct charger_manager *info, struct device *dev, int para)
 	int total_length = 0, i = 0, ret = 0;
 	info->cycle_count_status = CYCLE_COUNT_LOW;
 	product_name = para;
+
+	INIT_DELAYED_WORK(&info->charge_monitor_work, charge_monitor_func);
+	INIT_DELAYED_WORK(&info->usb_otg_monitor_work, monitor_usb_otg_burn);
+	if (product_name == RUBYPLUS)
+		INIT_DELAYED_WORK(&info->max_power_work, max_power_func);
 
 	if (!np) {
 		chr_err("no device node\n");
@@ -1072,11 +1105,6 @@ int step_jeita_init(struct charger_manager *info, struct device *dev, int para)
 		chr_err("failed to parse step_jeita_tuple_count\n");
 		return ret;
 	}
-
-	INIT_DELAYED_WORK(&info->charge_monitor_work, charge_monitor_func);
-	INIT_DELAYED_WORK(&info->usb_otg_monitor_work, monitor_usb_otg_burn);
-	if (product_name == RUBYPLUS)
-	      INIT_DELAYED_WORK(&info->max_power_work, max_power_func);
 
 	return ret;
 }

@@ -1016,7 +1016,7 @@ static int chgdet_task_threadfn(void *data)
 		}
 
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-		if (cti->chg_consumer)
+		if (cti->chg_consumer && cti->chg_consumer->cm)
 			charger_manager_enable_chg_type_det(cti->chg_consumer,
 							attach);
 #else

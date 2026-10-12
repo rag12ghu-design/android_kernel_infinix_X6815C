@@ -126,6 +126,9 @@ static bool mtk_check_psy(struct charger_manager *info)
 	if (!pinfo->bms_psy)
 		pinfo->bms_psy = power_supply_get_by_name("bms");
 
+	if (!pinfo->bms_psy)
+		pinfo->bms_psy = pinfo->batt_psy ? pinfo->batt_psy : power_supply_get_by_name("battery");
+
 	if (!pinfo->bms_psy) {
 		chr_err("failed to get bms_psy\n");
 		return false;
@@ -454,7 +457,7 @@ int charger_manager_enable_power_path(struct charger_consumer *consumer,
 {
 	int ret = 0;
 	bool is_en = true;
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	struct charger_device *chg_dev = NULL;
 
 	if (!info)
@@ -500,7 +503,7 @@ out:
 int charger_manager_force_disable_power_path(struct charger_consumer *consumer,
 	int idx, bool disable)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	struct charger_device *chg_dev = NULL;
 	int ret = 0;
 	if (info == NULL)
@@ -572,8 +575,11 @@ static int _charger_manager_enable_charging(struct charger_consumer *consumer,
 int charger_manager_enable_charging(struct charger_consumer *consumer,
 	int idx, bool en)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	int ret = 0;
+
+	if (!info)
+		return -EAGAIN;
 
 	mutex_lock(&info->charger_lock);
 	ret = _charger_manager_enable_charging(consumer, idx, en);
@@ -584,7 +590,7 @@ int charger_manager_enable_charging(struct charger_consumer *consumer,
 int charger_manager_get_input_current_limit(struct charger_consumer *consumer,
 	int idx, int *input_current)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -606,7 +612,7 @@ int charger_manager_get_input_current_limit(struct charger_consumer *consumer,
 int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 	int idx, int input_current)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -645,7 +651,7 @@ int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 int charger_manager_set_charging_current_limit(
 	struct charger_consumer *consumer, int idx, int charging_current)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -670,7 +676,7 @@ int charger_manager_set_charging_current_limit(
 int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 	int idx, int *tchg_min,	int *tchg_max)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
 	if (info != NULL) {
 		struct charger_data *pdata = NULL;
@@ -704,7 +710,7 @@ int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 int charger_manager_force_charging_current(struct charger_consumer *consumer,
 	int idx, int charging_current)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
 	if (info != NULL) {
 		struct charger_data *pdata = NULL;
@@ -726,7 +732,7 @@ int charger_manager_force_charging_current(struct charger_consumer *consumer,
 
 int charger_manager_get_current_charging_type(struct charger_consumer *consumer)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 
 	if (info != NULL) {
 		if (mtk_pe20_get_is_connect(info))
@@ -843,7 +849,7 @@ int charger_manager_get_charge_status(void)
 
 	if (pinfo->chr_type) {
 		if (pinfo->typec_burn || pinfo->input_suspend || pinfo->bms_i2c_error_count >= 10 ||
-			!is_between(pinfo->jeita_fcc_cfg[0].low_threshold, pinfo->jeita_fcc_cfg[pinfo->step_jeita_tuple_count - 1].high_threshold, pinfo->tbat)) {
+			(pinfo->step_jeita_tuple_count > 0 && !is_between(pinfo->jeita_fcc_cfg[0].low_threshold, pinfo->jeita_fcc_cfg[pinfo->step_jeita_tuple_count - 1].high_threshold, pinfo->tbat))) {
 			charge_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		} else {
 			if (pinfo->charge_full && pinfo->soc == 100 && pinfo->ibat > (product_name == RUBYPLUS ? -150 : -80) && pinfo->ibat < (product_name == RUBYPLUS ? 150 : 80)) {
@@ -892,9 +898,12 @@ int charger_manager_get_battery_health(void)
 
 int charger_manager_get_zcv(struct charger_consumer *consumer, int idx, u32 *uV)
 {
-	struct charger_manager *info = consumer->cm;
-	int ret = 0;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	struct charger_device *pchg = NULL;
+	int ret = 0;
+
+	if (!info)
+		return -EINVAL;
 
 
 	if (info != NULL) {
@@ -918,7 +927,10 @@ int charger_manager_get_zcv(struct charger_consumer *consumer, int idx, u32 *uV)
 int charger_manager_enable_sc(struct charger_consumer *consumer,
 	bool en, int stime, int etime)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!info)
+		return -EAGAIN;
 
 	chr_err("%s en:%d %d %d\n", __func__,
 		en, stime, etime);
@@ -932,7 +944,10 @@ int charger_manager_enable_sc(struct charger_consumer *consumer,
 int charger_manager_set_sc_current_limit(struct charger_consumer *consumer,
 	int cl)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!info)
+		return -EAGAIN;
 
 	chr_err("%s %d\n", __func__,
 		cl);
@@ -944,7 +959,10 @@ int charger_manager_set_sc_current_limit(struct charger_consumer *consumer,
 int charger_manager_set_bh(struct charger_consumer *consumer,
 	int bh)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
+
+	if (!info)
+		return -EAGAIN;
 
 	chr_err("%s %d\n", __func__,
 		bh);
@@ -955,23 +973,27 @@ int charger_manager_set_bh(struct charger_consumer *consumer,
 
 int charger_manager_enable_chg_type_det(struct charger_consumer *consumer, bool en)
 {
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
 	int ret = 0;
+
+	if (!consumer || !info)
+		return -EAGAIN;
 
 	chr_info("enable_chg_type_det, enable = %d\n", en);
 
 	if (en) {
-		if (!info->attach_wakelock->active)
+		if (info->attach_wakelock && !info->attach_wakelock->active)
 			__pm_stay_awake(info->attach_wakelock);
 	} else {
-		__pm_relax(info->attach_wakelock);
+		if (info->attach_wakelock)
+			__pm_relax(info->attach_wakelock);
 	}
 
 	ret = charger_dev_enable_chg_type_det(info->chg2_dev, en);
 	if (ret < 0) {
 		chr_err("%s: en chgdet fail, en = %d\n", __func__, en);
 		return ret;
-		}
+	}
 
 	return ret;
 }
@@ -980,7 +1002,9 @@ int register_charger_manager_notifier(struct charger_consumer *consumer,
 	struct notifier_block *nb)
 {
 	int ret = 0;
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
+	if (!consumer)
+		return -EINVAL;
 
 
 	mutex_lock(&consumer_mutex);
@@ -997,7 +1021,9 @@ int unregister_charger_manager_notifier(struct charger_consumer *consumer,
 				struct notifier_block *nb)
 {
 	int ret = 0;
-	struct charger_manager *info = consumer->cm;
+	struct charger_manager *info = consumer ? consumer->cm : NULL;
+	if (!consumer)
+		return -EINVAL;
 
 	mutex_lock(&consumer_mutex);
 	if (info != NULL)
@@ -1722,8 +1748,19 @@ static int mtk_charger_plug_in(struct charger_manager *info)
 	schedule_delayed_work(&info->charge_monitor_work, 0);
 	charger_dev_plug_in(info->chg1_dev);
 
-	power_supply_get_property(pinfo->bms_psy, POWER_SUPPLY_PROP_DEVICE_CHEM, &pval);
-	strcpy(info->device_chem, pval.strval);
+	if (!info->bms_psy) {
+		info->bms_psy = power_supply_get_by_name("bms");
+		if (!info->bms_psy)
+			info->bms_psy = power_supply_get_by_name("battery");
+		if (pinfo)
+			pinfo->bms_psy = info->bms_psy;
+	}
+
+	if (info->bms_psy) {
+		power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_DEVICE_CHEM, &pval);
+		if (pval.strval)
+			strncpy(info->device_chem, pval.strval, sizeof(info->device_chem) - 1);
+	}
 
 	return 0;
 }
@@ -1753,11 +1790,13 @@ static int mtk_charger_plug_out(struct charger_manager *info)
 	info->mtbf_test = false;
 	info->last_thermal_level = -1;
 	info->full_wa_iterm = 0;
-	info->chr_type == CHARGER_UNKNOWN;
+	info->chr_type = CHARGER_UNKNOWN;
 	pval.intval = 0;
-	power_supply_set_property(pinfo->bms_psy, POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+	if (info->bms_psy)
+		power_supply_set_property(info->bms_psy, POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
 	pval.intval = CHARGER_UNKNOWN;
-	power_supply_set_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+	if (info->charger_psy)
+		power_supply_set_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 
 	get_monotonic_boottime(&time);
 	if (time.tv_sec <= 25)
@@ -2259,58 +2298,68 @@ static void check_charge_data(struct charger_manager *info)
 	charger_dev_get_ibus(info->chg1_dev, &info->ibus);
 	charger_dev_is_enabled(info->chg1_dev, &info->bbc_enable);
 	charger_dev_is_powerpath_enabled(info->chg1_dev, &info->pp_enable);
-	charger_dev_get_charge_status(pinfo->chg1_dev, &info->charge_status);
+	charger_dev_get_charge_status(info->chg1_dev, &info->charge_status);
 	charger_dev_get_temperature(info->chg1_dev, &info->bbc_temp, &info->bbc_temp);
+	if (!info->bms_psy) {
+		info->bms_psy = power_supply_get_by_name("bms");
+		if (!info->bms_psy)
+			info->bms_psy = power_supply_get_by_name("battery");
+		if (pinfo)
+			pinfo->bms_psy = info->bms_psy;
+	}
+
 	charger_dev_get_temperature(info->cp_master, &info->cp_master_temp, &info->cp_master_temp);
 	charger_dev_get_temperature(info->cp_slave, &info->cp_slave_temp, &info->cp_slave_temp);
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CAPACITY, &pval);
-	if (ret)
-		chr_err("failed to get soc\n");
-	else
-		info->soc = pval.intval;
+	if (info->bms_psy) {
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CAPACITY, &pval);
+		if (ret)
+			chr_err("failed to get soc\n");
+		else
+			info->soc = pval.intval;
 
-	ret = power_supply_get_property(info->bms_psy,POWER_SUPPLY_PROP_CHARGE_DONE, &pval);
-	if (ret)
-		chr_err("failed to get fg_full\n");
-	else
-		info->fg_full = !!pval.intval;
+		ret = power_supply_get_property(info->bms_psy,POWER_SUPPLY_PROP_CHARGE_DONE, &pval);
+		if (ret)
+			chr_err("failed to get fg_full\n");
+		else
+			info->fg_full = !!pval.intval;
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
-	if (ret)
-		chr_err("failed to get vbat\n");
-	else
-		info->vbat = pval.intval / 1000;
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+		if (ret)
+			chr_err("failed to get vbat\n");
+		else
+			info->vbat = pval.intval / 1000;
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
-	if (ret)
-		chr_err("failed to get ibat\n");
-	else
-		info->ibat = pval.intval / 1000;
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
+		if (ret)
+			chr_err("failed to get ibat\n");
+		else
+			info->ibat = pval.intval / 1000;
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_TEMP, &pval);
-	if (ret)
-		chr_err("failed to get tbat\n");
-	else
-		info->tbat = pval.intval;
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_TEMP, &pval);
+		if (ret)
+			chr_err("failed to get tbat\n");
+		else
+			info->tbat = pval.intval;
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &pval);
-	if (ret)
-		chr_err("failed to get cycle_count\n");
-	else
-		info->cycle_count = pval.intval;
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &pval);
+		if (ret)
+			chr_err("failed to get cycle_count\n");
+		else
+			info->cycle_count = pval.intval;
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_AUTHENTIC, &pval);
-	if (ret)
-		chr_err("failed to get bat_verifed\n");
-	else
-		info->bat_verifed = !!pval.intval;
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_AUTHENTIC, &pval);
+		if (ret)
+			chr_err("failed to get bat_verifed\n");
+		else
+			info->bat_verifed = !!pval.intval;
 
-	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_I2C_ERROR_COUNT, &pval);
-	if (ret)
-		chr_err("failed to get bms_i2c_error_count\n");
-	else
-		info->bms_i2c_error_count = pval.intval;
+		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_I2C_ERROR_COUNT, &pval);
+		if (ret)
+			chr_err("failed to get bms_i2c_error_count\n");
+		else
+			info->bms_i2c_error_count = pval.intval;
+	}
 
 	/*
 	if (info->bat_verifed)
@@ -2338,7 +2387,8 @@ static void check_charge_data(struct charger_manager *info)
 	} else {
 		pval.intval = FG_MONITOR_DELAY_8S;
 	}
-	power_supply_set_property(pinfo->bms_psy, POWER_SUPPLY_PROP_MONITOR_DELAY, &pval);
+	if (info->bms_psy)
+		power_supply_set_property(info->bms_psy, POWER_SUPPLY_PROP_MONITOR_DELAY, &pval);
 
 	if (info->pp_enable == !!get_effective_result(info->bbc_suspend_votable)) {
 		rerun_election(info->bbc_suspend_votable);
@@ -3182,8 +3232,9 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		info->algorithm_name = "SwitchCharging";
 	}
 
-	if (strcmp(info->algorithm_name, "SwitchCharging2") == 0) {
-		chr_err("found SwitchCharging2\n");
+	if (strcmp(info->algorithm_name, "SwitchCharging2") == 0 ||
+	    strcmp(info->algorithm_name, "SwitchCharging") == 0) {
+		chr_err("found %s\n", info->algorithm_name);
 		mtk_switch_charging_init(info);
 	}
 
@@ -4429,6 +4480,7 @@ static void mtk_charger_parse_cmdline(void)
 }
 
 static const struct platform_device_id mtk_charger_id[] = {
+	{ "mediatek,charger", UNKNOW },
 	{ "ruby_charger", RUBY },
 	{ "rubypro_charger", RUBYPRO },
 	{ "rubyplus_charger", RUBYPLUS },
@@ -4437,9 +4489,10 @@ static const struct platform_device_id mtk_charger_id[] = {
 MODULE_DEVICE_TABLE(platform, mtk_charger_id);
 
 static const struct of_device_id mtk_charger_of_match[] = {
-	{.compatible = "ruby_charger", .data = &mtk_charger_id[0], },
-	{.compatible = "rubypro_charger", .data = &mtk_charger_id[1], },
-	{.compatible = "rubyplus_charger", .data = &mtk_charger_id[2], },
+	{.compatible = "mediatek,charger", .data = &mtk_charger_id[0], },
+	{.compatible = "ruby_charger", .data = &mtk_charger_id[1], },
+	{.compatible = "rubypro_charger", .data = &mtk_charger_id[2], },
+	{.compatible = "rubyplus_charger", .data = &mtk_charger_id[3], },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_charger_of_match);
@@ -4465,12 +4518,21 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	mtk_charger_parse_cmdline();
 
 	of_id = of_match_device(mtk_charger_of_match, &pdev->dev);
-	pdev->id_entry = of_id->data;
+	if (of_id)
+		pdev->id_entry = of_id->data;
+	else
+		pdev->id_entry = platform_get_device_id(pdev);
 
-	if (pdev->id_entry->driver_data == product_name) {
+	if (!pdev->id_entry) {
+		chr_err("%s: no id_entry found\n", __func__);
+		return -ENODEV;
+	}
+
+	if (pdev->id_entry->driver_data == UNKNOW ||
+	    pdev->id_entry->driver_data == product_name) {
 		chr_info("CHARGE_ALG probe start\n");
 	} else {
-		chr_info("driver_data and product_name not match, don't probe, %d\n", pdev->id_entry->driver_data);
+		chr_info("driver_data and product_name not match, don't probe, %ld\n", pdev->id_entry->driver_data);
 		return -ENODEV;
 	}
 
