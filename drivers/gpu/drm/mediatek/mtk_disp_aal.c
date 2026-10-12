@@ -443,7 +443,8 @@ void disp_aal_refresh_by_kernel(void)
 
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight or Kernel API latency should be smallest */
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		if (default_comp && default_comp->mtk_crtc)
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 	}
 }
 
@@ -486,8 +487,10 @@ void disp_aal_notify_backlight_changed(int trans_backlight)
 	g_aal_hist.serviceFlags |= service_flags;
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 	// always notify aal service for LED changed
-	mtk_drm_idlemgr_kick(__func__, &default_comp->mtk_crtc->base, 1);
-	disp_aal_refresh_by_kernel();
+	if (default_comp && default_comp->mtk_crtc) {
+		mtk_drm_idlemgr_kick(__func__, &default_comp->mtk_crtc->base, 1);
+		disp_aal_refresh_by_kernel();
+	}
 }
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -587,8 +590,10 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 static void mtk_crtc_user_cmd_work(struct work_struct *work_item)
 {
 
-	mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+	if (default_comp && default_comp->mtk_crtc) {
+		mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+	}
 
 	AALFLOW_LOG("end");
 }
@@ -597,7 +602,8 @@ static void mtk_disp_aal_refresh_trigger(struct work_struct *work_item)
 {
 	AALFLOW_LOG("start");
 
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+	if (default_comp && default_comp->mtk_crtc)
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
 
 	AALFLOW_LOG("end");
 }
@@ -1888,7 +1894,7 @@ static void disp_aal_dre3_irq_handle(struct mtk_ddp_comp *comp)
 
 	if (aal_sram_method == AAL_SRAM_EOF &&
 		atomic_read(&g_aal_dre_halt) == 0) {
-		if (comp->mtk_crtc->is_dual_pipe && comp->id == DDP_COMPONENT_AAL1) {
+		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe && comp->id == DDP_COMPONENT_AAL1) {
 			if (atomic_cmpxchg(&g_aal1_force_hist_apb, 0, 1) == 0) {
 				hist_apb = 0;
 				hist_int = 1;
@@ -1920,12 +1926,12 @@ static void disp_aal_dre3_irq_handle(struct mtk_ddp_comp *comp)
 		disp_aal_update_dre3_sram(comp, false);
 		atomic_set(&g_aal_dre_halt, 0);
 	} else if (aal_sram_method == AAL_SRAM_SOF) {
-		if (mtk_drm_is_idle(&(comp->mtk_crtc->base))) {
+		if (comp->mtk_crtc && mtk_drm_is_idle(&(comp->mtk_crtc->base))) {
 			AALIRQ_LOG("[SRAM] when idle, operate SRAM in (EOF) comp id:%d ", comp->id);
 			disp_aal_update_dre3_sram(comp, false);
 		}
 		AALIRQ_LOG("[SRAM] clean dre_config in (EOF)  comp->id = %d", comp->id);
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 			if (comp->id == DDP_COMPONENT_AAL0)
 				atomic_set(&g_aal_dre_config, 0);
 			else if (comp->id == DDP_COMPONENT_AAL1)
@@ -3201,7 +3207,7 @@ void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass)
 	if (atomic_read(&g_aal_force_relay) == bypass)
 		return;
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_AAL, &bypass);
-	if (default_comp->mtk_crtc->is_dual_pipe)
+	if (default_comp && default_comp->mtk_crtc && default_comp->mtk_crtc->is_dual_pipe)
 		ret = mtk_crtc_user_cmd(crtc, aal1_default_comp, BYPASS_AAL, &bypass);
 	DDPFUNC("ret = %d", ret);
 }
