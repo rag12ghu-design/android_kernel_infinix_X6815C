@@ -616,6 +616,16 @@ void KD_IMGSENSOR_PROFILE_I2C(char *tag, int trans_num);
 #define uDELAY(us)       udelay(us)
 
 /* ruby camera*/
+/* Infinix Zero 5G 2023 (X6815C) camera sensors */
+#define S5KJN1_SENSOR_ID                             0x38E1
+#define SENSOR_DRVNAME_S5KJN1_MIPI_RAW               "s5kjn1_mipi_raw"
+#define HI1631Q_SENSOR_ID                            0x1631
+#define SENSOR_DRVNAME_HI1631Q_MIPI_RAW              "hi1631q_mipi_raw"
+#define GC02M1_SENSOR_ID                             0x02E0
+#define SENSOR_DRVNAME_GC02M1_MIPI_RAW               "gc02m1_mipi_raw"
+#define GC02M1MACRO_SENSOR_ID                        0x02E3
+#define SENSOR_DRVNAME_GC02M1MACRO_MIPI_RAW          "gc02m1macro_mipi_raw"
+
 #define S5KHPXSEMCO_SENSOR_ID                        0x1B70
 #define SENSOR_DRVNAME_S5KHPXSEMCO_MIPI_RAW          "s5khpxsemco_mipi_raw"
 #define S5KHPXOFILM_SENSOR_ID                        0x1B71
