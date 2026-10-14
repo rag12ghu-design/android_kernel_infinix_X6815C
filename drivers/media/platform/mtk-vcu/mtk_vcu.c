@@ -528,7 +528,7 @@ static int vcu_log_get(struct mtk_vcu *vcu, unsigned long arg)
 	int ret;
 	unsigned char *user_data_addr = NULL;
 
-	if (!vcu)
+	if (!vcu || !vcu->vdec_log_info || !arg)
 		return -EINVAL;
 
 	user_data_addr = (unsigned char *)arg;
@@ -541,17 +541,11 @@ static int vcu_log_get(struct mtk_vcu *vcu, unsigned long arg)
 	ret = wait_event_interruptible_timeout(vcu->vdec_log_get_wq,
 					       atomic_read(&vcu->vdec_log_got),
 					       msecs_to_jiffies(100));
-	if (ret < 0) {
-		pr_info("[VCU][%d] wait event return %d @%s\n",
-			vcu->vcuid, ret, __func__);
+	if (ret < 0)
 		return ret;
-	}
 
 	if (!atomic_read(&vcu->vdec_log_got))
 		return -EAGAIN;
-
-	if (!vcu->vdec_log_info || !user_data_addr)
-		return -EINVAL;
 
 	ret = copy_to_user(user_data_addr, vcu->vdec_log_info,
 			   (unsigned long)sizeof(struct log_test_nofuse));
