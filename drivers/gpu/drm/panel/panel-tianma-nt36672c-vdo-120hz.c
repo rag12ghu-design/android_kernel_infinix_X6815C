@@ -27,35 +27,35 @@
 
 #define PANEL_CLOCK 361519
 #define PANEL_WIDTH  1080
-#define PANEL_HEIGHT 2340
+#define PANEL_HEIGHT 2460
 
-#define PHYSICAL_WIDTH 68364
-#define PHYSICAL_HEIGHT 152300
+#define PHYSICAL_WIDTH 69174
+#define PHYSICAL_HEIGHT 157563
 
 
 #define DATA_RATE 1070
 
 #define HSA 20
-#define HBP 80
-#define VSA 10
-#define VBP 25
+#define HBP 22
+#define VSA 2
+#define VBP 18
 
 /*Parameter setting for mode 0 Start*/
 #define MODE_0_FPS 120
-#define MODE_0_VFP 16
-#define MODE_0_HFP 80
+#define MODE_0_VFP 54
+#define MODE_0_HFP 22
 /*Parameter setting for mode 0 End*/
 
 /*Parameter setting for mode 1 Start*/
 #define MODE_1_FPS 90
-#define MODE_1_VFP 810
-#define MODE_1_HFP 80
+#define MODE_1_VFP 899
+#define MODE_1_HFP 22
 /*Parameter setting for mode 1 End*/
 
 /*Parameter setting for mode 2 Start*/
 #define MODE_2_FPS 60
-#define MODE_2_VFP 2380
-#define MODE_2_HFP 80
+#define MODE_2_VFP 2588
+#define MODE_2_HFP 22
 /*Parameter setting for mode 2 End*/
 
 
@@ -77,7 +77,7 @@ struct tianma {
 	int error;
 };
 
-static char bl_tb0[] = {0x51, 0xf, 0xff};
+static char bl_tb0[] = {0x51, 0x3, 0xff};
 
 #define tianma_dcs_write_seq(ctx, seq...)                                     \
 	({                                                                     \
@@ -426,15 +426,20 @@ static int tianma_unprepare(struct drm_panel *panel)
 	if (!ctx->prepared)
 		return 0;
 
-	tianma_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
-	tianma_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
-	msleep(200);
+	pr_info("%s: entering display sleep (clean DCS sequence)\n", __func__);
 
-	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	if (!IS_ERR(ctx->reset_gpio)) {
-		gpiod_set_value(ctx->reset_gpio, 0);
-		devm_gpiod_put(ctx->dev, ctx->reset_gpio);
-	}
+	/* 1. Send Display Off (0x28, 0x00) first, wait 20ms for active scanline finish */
+	tianma_dcs_write_seq_static(ctx, 0x28, 0x00);
+	msleep(20);
+
+	/* 2. Send Enter Sleep Mode (0x10, 0x00) second, wait 120ms for sleep transition */
+	tianma_dcs_write_seq_static(ctx, 0x10, 0x00);
+	msleep(120);
+
+	/* CRITICAL: Do NOT pull reset GPIO low during suspend!
+	 * Stock kernel leaves reset untouched during sleep to preserve
+	 * NT36672C volatile SRAM and timing calibration.
+	 */
 
 	ctx->error = 0;
 	ctx->prepared = false;
@@ -447,13 +452,17 @@ static int tianma_prepare(struct drm_panel *panel)
 	struct tianma *ctx = panel_to_tianma(panel);
 	int ret;
 
-	pr_info("%s\n", __func__);
+	pr_info("%s: waking from display sleep\n", __func__);
 	if (ctx->prepared)
 		return 0;
 
+	/* Full panel re-initialization matching stock kernel (0xffffff80080c734c).
+	 * Restores NT36672C registers, VESA DSC line buffer config, gamma, and timing
+	 * after display sleep, preventing sleep/wake glitching and tearing.
+	 */
 	tianma_panel_init(ctx);
-
 	ret = ctx->error;
+
 	if (ret < 0)
 		tianma_unprepare(panel);
 
@@ -555,16 +564,16 @@ static struct mtk_panel_params ext_params = {
 	.slice_height = 20,
 	.slice_width = 540,
 	.chunk_size = 540,
-	.xmit_delay = 512,
+	.xmit_delay = 170,
 	.dec_delay = 526,
 	.scale_value = 32,
-	.increment_interval = 488,
+	.increment_interval = 113,
 	.decrement_interval = 7,
 	.line_bpg_offset = 12,
 	.nfl_bpg_offset = 1294,
 	.slice_bpg_offset = 1302,
 	.initial_offset = 6144,
-	.final_offset = 4336,
+	.final_offset = 7072,
 	.flatness_minqp = 3,
 	.flatness_maxqp = 12,
 	.rc_model_size = 8192,
@@ -614,16 +623,16 @@ static struct mtk_panel_params ext_params_90hz = {
 	.slice_height = 20,
 	.slice_width = 540,
 	.chunk_size = 540,
-	.xmit_delay = 512,
+	.xmit_delay = 170,
 	.dec_delay = 526,
 	.scale_value = 32,
-	.increment_interval = 488,
+	.increment_interval = 113,
 	.decrement_interval = 7,
 	.line_bpg_offset = 12,
 	.nfl_bpg_offset = 1294,
 	.slice_bpg_offset = 1302,
 	.initial_offset = 6144,
-	.final_offset = 4336,
+	.final_offset = 7072,
 	.flatness_minqp = 3,
 	.flatness_maxqp = 12,
 	.rc_model_size = 8192,
@@ -674,16 +683,16 @@ static struct mtk_panel_params ext_params_60hz = {
 	.slice_height = 20,
 	.slice_width = 540,
 	.chunk_size = 540,
-	.xmit_delay = 512,
+	.xmit_delay = 170,
 	.dec_delay = 526,
 	.scale_value = 32,
-	.increment_interval = 488,
+	.increment_interval = 113,
 	.decrement_interval = 7,
 	.line_bpg_offset = 12,
 	.nfl_bpg_offset = 1294,
 	.slice_bpg_offset = 1302,
 	.initial_offset = 6144,
-	.final_offset = 4336,
+	.final_offset = 7072,
 	.flatness_minqp = 3,
 	.flatness_maxqp = 12,
 	.rc_model_size = 8192,
@@ -709,10 +718,11 @@ static struct mtk_panel_params ext_params_60hz = {
 static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level)
 {
-	if (level > 255)
-		level = 255;
+	if (level > 4095)
+		level = 4095;
+	else if (level <= 255 && level > 0)
+		level = level * 4095 / 255;
 
-	level = level * 4095 / 255;
 	bl_tb0[1] = ((level >> 8) & 0xf);
 	bl_tb0[2] = (level & 0xff);
 
@@ -842,8 +852,8 @@ static int tianma_get_modes(struct drm_panel *panel)
 	mode_60hz->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(panel->connector, mode_60hz);
 
-	panel->connector->display_info.width_mm = 64;
-	panel->connector->display_info.height_mm = 129;
+	panel->connector->display_info.width_mm = 69;
+	panel->connector->display_info.height_mm = 158;
 
 	return 3;
 }
