@@ -160,9 +160,9 @@ Comprehensive production release for the Infinix Zero 5G 2023 (X6815C / MT6877) 
 
 | Artifact | Size | SHA-256 | Description |
 | :--- | :--- | :--- | :--- |
-| **`boot_x6815c.img`** | **41,943,040 bytes** (40 MB) | `2539ed0bc294173dd2eb4d9b84136c861eac37e179eb9a26fcf0c1f8b4df4b61` | Verified AVB 1.0 signed boot image with Build #28 VCU spin throttle, touch, and battery fixes |
-| **`boot_a_custom.img`** | **41,943,040 bytes** (40 MB) | `2539ed0bc294173dd2eb4d9b84136c861eac37e179eb9a26fcf0c1f8b4df4b61` | Rooted Slot A custom boot image with identical layout and AVB signing |
-| **`Image.gz`** | **13,171,492 bytes** (13 MB) | `f62148cc1b418897d515f39dfe2914f852ece18e135fb2cdc764ecd7306c05aa` | Linux 4.19.191+ compressed ARM64 kernel with Build #28 fixes |
+| **`boot_x6815c.img`** | **41,943,040 bytes** (40 MB) | `49671e7e191a27657b55811fb4928b3434234399b0e131978cb31b3ca7531338` | Verified AVB 1.0 signed boot image with Build #28 VCU spin throttle, touch, and battery fixes |
+| **`boot_a_custom.img`** | **41,943,040 bytes** (40 MB) | `49671e7e191a27657b55811fb4928b3434234399b0e131978cb31b3ca7531338` | Rooted Slot A custom boot image with identical layout and AVB signing |
+| **`Image.gz`** | **13,170,887 bytes** (13 MB) | `7658e4d6d8e8bcfdd5100dd693ba71a16416740ab4962aed91b5fd61815809fc` | Linux 4.19.191+ compressed ARM64 kernel with Build #28 fixes |
 
 
 ---
