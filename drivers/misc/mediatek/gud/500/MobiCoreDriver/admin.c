@@ -214,7 +214,6 @@ static void request_cancel(void);
 static int request_send(u32 command, const struct mc_uuid_t *uuid, bool is_gp)
 {
 	int counter_ms = 0;
-	int wait_tens = 0;
 	int ret = 0;
 
 	/* Prepare request */
@@ -225,11 +224,10 @@ static int request_send(u32 command, const struct mc_uuid_t *uuid, bool is_gp)
 		if (signal_pending(current))
 			return -ERESTARTSYS;
 
-		if (counter_ms == 10000) { /* print every 10s */
-			wait_tens++;
-			mc_dev_info("daemon not connected after %d0s, waiting",
-				    wait_tens);
-			counter_ms = 0;
+		if (counter_ms >= 5000) {
+			mc_dev_err(-ETIMEDOUT, "daemon not connected after %d ms, timing out",
+				   counter_ms);
+			return -ETIMEDOUT;
 		}
 
 		msleep(20);

@@ -2088,7 +2088,7 @@ static void mtk_nanohub_start_timesync(void)
 		jiffies + msecs_to_jiffies(SYNC_TIME_START_CYCLC));
 }
 
-void mtk_nanohub_power_up_loop(void *data)
+int mtk_nanohub_power_up_loop(void *data)
 {
 	int ret = 0, id = 0;
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
@@ -2097,7 +2097,7 @@ void mtk_nanohub_power_up_loop(void *data)
 	ret = wait_event_interruptible(power_reset_wait,
 		READ_ONCE(scp_system_ready) && READ_ONCE(scp_chre_ready));
 	if (ret)
-		return;
+		return ret;
 	pr_info("SCP power up\n");
 	spin_lock_irqsave(&scp_state_lock, flags);
 	WRITE_ONCE(scp_chre_ready, false);
@@ -2113,7 +2113,10 @@ void mtk_nanohub_power_up_loop(void *data)
 	WRITE_ONCE(device->scp_sensor_fifo,
 		(struct sensor_fifo *)
 		(long)scp_get_reserve_mem_virt(SENS_MEM_ID));
-	BUG_ON(device->scp_sensor_fifo == NULL);
+	if (unlikely(device->scp_sensor_fifo == NULL)) {
+		pr_err("scp_sensor_fifo is NULL, aborting nanohub power-up\n");
+		return -ENOMEM;
+	}
 	WRITE_ONCE(device->scp_sensor_fifo->wp, 0);
 	WRITE_ONCE(device->scp_sensor_fifo->rp, 0);
 	WRITE_ONCE(device->scp_sensor_fifo->fifo_size,
@@ -2141,12 +2144,15 @@ void mtk_nanohub_power_up_loop(void *data)
 
 	/* 8. create mamanger last */
 	mtk_nanohub_create_manager();
+	return 0;
 }
 
 static int mtk_nanohub_power_up_work(void *data)
 {
-	for (;;)
-		mtk_nanohub_power_up_loop(data);
+	for (;;) {
+		if (mtk_nanohub_power_up_loop(data) == -ENOMEM)
+			break;
+	}
 	return 0;
 }
 

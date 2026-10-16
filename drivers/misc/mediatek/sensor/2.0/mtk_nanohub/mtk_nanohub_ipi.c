@@ -65,6 +65,13 @@ static int ipi_txrx_bufs(struct ipi_transfer *t)
 			pr_err("IPI_SENSOR send fail\n");
 			return -1;
 		}
+		if (status == SCP_IPI_NOT_READY) {
+			pr_err_ratelimited("IPI_SENSOR not ready\n");
+			spin_lock_irqsave(&hw_transfer_lock, flags);
+			hw->context = NULL;
+			spin_unlock_irqrestore(&hw_transfer_lock, flags);
+			return -ENODEV;
+		}
 		if (status == SCP_IPI_BUSY) {
 			if (retry++ == 1000) {
 				pr_err("IPI_SENSOR send retry fail\n");

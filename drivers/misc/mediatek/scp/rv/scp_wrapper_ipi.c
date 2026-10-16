@@ -163,6 +163,11 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 		return SCP_IPI_ERROR;
 	}
 
+	if (len + 8 > sizeof(pkt) || (len > 0 && !buf)) {
+		pr_notice("%s: len %u out of bounds or null buf\n", __func__, len);
+		return SCP_IPI_ERROR;
+	}
+
 	/* variation length will only support chre and sensor for reducing slot
 	 * and cpu time cost by memcpy.
 	 */

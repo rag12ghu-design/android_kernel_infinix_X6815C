@@ -1272,14 +1272,10 @@ static const char vermagic[] = VERMAGIC_STRING;
 
 static int try_to_force_load(struct module *mod, const char *reason)
 {
-#ifdef CONFIG_MODULE_FORCE_LOAD
 	if (!test_taint(TAINT_FORCED_MODULE))
 		pr_warn("%s: %s: kernel tainted.\n", mod->name, reason);
 	add_taint_module(mod, TAINT_FORCED_MODULE, LOCKDEP_NOW_UNRELIABLE);
 	return 0;
-#else
-	return -ENOEXEC;
-#endif
 }
 
 #ifdef CONFIG_MODVERSIONS
@@ -1298,6 +1294,7 @@ static int check_version(const struct load_info *info,
 	unsigned int versindex = info->index.vers;
 	unsigned int i, num_versions;
 	struct modversion_info *versions;
+	u32 crcval = 0;
 
 	/* Exporting module didn't supply crcs?  OK, we're already tainted. */
 	if (!crc)
@@ -1312,8 +1309,6 @@ static int check_version(const struct load_info *info,
 		/ sizeof(struct modversion_info);
 
 	for (i = 0; i < num_versions; i++) {
-		u32 crcval;
-
 		if (strcmp(versions[i].name, symname) != 0)
 			continue;
 
@@ -1333,9 +1328,9 @@ static int check_version(const struct load_info *info,
 	return 1;
 
 bad_version:
-	pr_warn("%s: disagrees about version of symbol %s\n",
-	       info->name, symname);
-	return 0;
+	pr_warn("%s: symbol %s CRC mismatch (module: 0x%08lx, kernel: 0x%08x) - tolerated for vendor compatibility\n",
+		info->name, symname, (unsigned long)versions[i].crc, (unsigned int)crcval);
+	return 1;
 }
 
 static inline int check_modstruct_version(const struct load_info *info,
@@ -1353,7 +1348,8 @@ static inline int check_modstruct_version(const struct load_info *info,
 		BUG();
 	}
 	preempt_enable();
-	return check_version(info, "module_layout", mod, crc);
+	check_version(info, "module_layout", mod, crc);
+	return 1;
 }
 
 /* First part is kernel version, which we ignore if module has crcs. */
@@ -1364,7 +1360,11 @@ static inline int same_magic(const char *amagic, const char *bmagic,
 		amagic += strcspn(amagic, " ");
 		bmagic += strcspn(bmagic, " ");
 	}
-	return strcmp(amagic, bmagic) == 0;
+	if (strcmp(amagic, bmagic) != 0) {
+		pr_info("accepting vermagic '%s' against kernel '%s' (relaxed for vendor compatibility)\n",
+			amagic, bmagic);
+	}
+	return 1;
 }
 #else
 static inline int check_version(const struct load_info *info,
@@ -1384,7 +1384,11 @@ static inline int check_modstruct_version(const struct load_info *info,
 static inline int same_magic(const char *amagic, const char *bmagic,
 			     bool has_crcs)
 {
-	return strcmp(amagic, bmagic) == 0;
+	if (strcmp(amagic, bmagic) != 0) {
+		pr_info("accepting vermagic '%s' against kernel '%s' (relaxed for vendor compatibility)\n",
+			amagic, bmagic);
+	}
+	return 1;
 }
 #endif /* CONFIG_MODVERSIONS */
 

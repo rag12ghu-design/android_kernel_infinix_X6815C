@@ -487,14 +487,26 @@ static void mobicore_stop(void)
 int mc_wait_tee_start(void)
 {
 	int ret;
+	int retries = 50;
 
-	while (!is_mobicore_ready())
-		ssleep(1);
+	while (!is_mobicore_ready()) {
+		if (--retries <= 0) {
+			mc_dev_err(-ETIMEDOUT, "timed out waiting for mobicore ready");
+			return -ETIMEDOUT;
+		}
+		msleep(100);
+	}
 
+	retries = 50;
 	mutex_lock(&main_ctx.start_mutex);
 	while (main_ctx.start_ret == TEE_START_NOT_TRIGGERED) {
+		if (--retries <= 0) {
+			mutex_unlock(&main_ctx.start_mutex);
+			mc_dev_err(-ETIMEDOUT, "timed out waiting for TEE trigger");
+			return -ETIMEDOUT;
+		}
 		mutex_unlock(&main_ctx.start_mutex);
-		ssleep(1);
+		msleep(100);
 		mutex_lock(&main_ctx.start_mutex);
 	}
 

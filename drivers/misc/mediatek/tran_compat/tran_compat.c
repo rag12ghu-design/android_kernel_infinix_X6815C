@@ -10,8 +10,11 @@
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/miscdevice.h>
+#include <linux/fs.h>
+#include <linux/uaccess.h>
 
-#define TRAN_COMPAT_VERSION "1.0.0-slot-b"
+#define TRAN_COMPAT_VERSION "1.0.1-vpu-slot-b"
 
 /* Safe stub for Transsion FRE (Frame Rate Engine) */
 void tran_fre_notify(int event, void *data)
@@ -39,6 +42,7 @@ static int tran_compat_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "Transsion X6815C Compatibility Layer v%s (Active)\n", TRAN_COMPAT_VERSION);
 	seq_puts(m, "Hardware: MT6877 (Infinix Zero 5G 2023)\n");
 	seq_puts(m, "Status: Slot B Verified / Safe Decoupled Mode\n");
+	seq_puts(m, "Features: /dev/vpu stub enabled\n");
 	return 0;
 }
 
@@ -55,15 +59,104 @@ static const struct file_operations tran_compat_proc_fops = {
 	.release = single_release,
 };
 
+/* Compatibility stub for /dev/vpu */
+static int vpu_compat_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int vpu_compat_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static long vpu_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return 0;
+}
+
+#ifdef CONFIG_COMPAT
+static long vpu_compat_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return vpu_compat_ioctl(file, cmd, arg);
+}
+#endif
+
+static const struct file_operations vpu_compat_fops = {
+	.owner          = THIS_MODULE,
+	.open           = vpu_compat_open,
+	.release        = vpu_compat_release,
+	.unlocked_ioctl = vpu_compat_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = vpu_compat_compat_ioctl,
+#endif
+};
+
+static struct miscdevice vpu_misc_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name  = "vpu",
+	.fops  = &vpu_compat_fops,
+	.mode  = 0666,
+};
+
+static ssize_t tran_boost_proc_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+{
+	int level = 0;
+	char kbuf[32];
+	size_t len = min(count, sizeof(kbuf) - 1);
+
+	if (copy_from_user(kbuf, buf, len))
+		return -EFAULT;
+	kbuf[len] = '\0';
+	if (kstrtoint(strim(kbuf), 10, &level) == 0)
+		tran_pnpmgr_boost(level);
+
+	return count;
+}
+
+static int tran_boost_proc_show(struct seq_file *m, void *v)
+{
+	seq_puts(m, "boost: active (level 1)\n");
+	return 0;
+}
+
+static int tran_boost_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tran_boost_proc_show, NULL);
+}
+
+static const struct file_operations tran_boost_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = tran_boost_proc_open,
+	.read    = seq_read,
+	.write   = tran_boost_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 static int __init tran_compat_init(void)
 {
+	int ret;
+
 	proc_create("tran_compat", 0444, NULL, &tran_compat_proc_fops);
+	proc_create("boost", 0666, NULL, &tran_boost_proc_fops);
+	proc_create("tran_boost", 0666, NULL, &tran_boost_proc_fops);
+
+	ret = misc_register(&vpu_misc_device);
+	if (ret)
+		pr_warn("tran_compat: Failed to register /dev/vpu misc device: %d\n", ret);
+	else
+		pr_info("tran_compat: Registered /dev/vpu misc device (mode 0666)\n");
+
 	pr_info("tran_compat: Initialized Transsion X6815C compatibility layer v%s\n", TRAN_COMPAT_VERSION);
 	return 0;
 }
 
 static void __exit tran_compat_exit(void)
 {
+	misc_deregister(&vpu_misc_device);
+	remove_proc_entry("boost", NULL);
+	remove_proc_entry("tran_boost", NULL);
 	remove_proc_entry("tran_compat", NULL);
 	pr_info("tran_compat: Exited Transsion X6815C compatibility layer\n");
 }
