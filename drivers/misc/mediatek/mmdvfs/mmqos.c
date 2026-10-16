@@ -1017,6 +1017,8 @@ static void set_camera_max_bw(u32 occ_bw)
 {
 	struct task_struct *pKThread;
 
+	if (occ_bw < 2500)
+		occ_bw = 2500;
 	camera_max_bw = occ_bw;
 	wait_next_max_cam_bw_set = false;
 	pr_notice("set cam max occupy_bw=%d\n", occ_bw);

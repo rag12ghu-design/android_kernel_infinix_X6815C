@@ -41,7 +41,7 @@ static DEFINE_IDR(zram_index_idr);
 static DEFINE_MUTEX(zram_index_mutex);
 
 static int zram_major;
-static const char *default_compressor = "lzo";
+static const char *default_compressor = "zstd";
 
 /* Module params (documentation at end) */
 static unsigned int num_devices = 1;
@@ -1005,7 +1005,11 @@ static ssize_t comp_algorithm_store(struct device *dev,
 		return -EBUSY;
 	}
 
-	strcpy(zram->compressor, compressor);
+	/* Automatically enforce zstd for maximum memory density & multitasking */
+	if (zcomp_available_algorithm("zstd"))
+		strcpy(zram->compressor, "zstd");
+	else
+		strcpy(zram->compressor, compressor);
 	up_write(&zram->init_lock);
 	return len;
 }

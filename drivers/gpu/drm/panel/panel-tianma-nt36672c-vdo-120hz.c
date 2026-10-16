@@ -867,8 +867,8 @@ static struct mtk_panel_params ext_params = {
 		.switch_en = 0,
 		.vact_timing_fps = MODE_0_FPS,
 	},
-	.lfr_enable = 1,
-	.lfr_minimum_fps = 60,
+	.lfr_enable = 0,
+	.lfr_minimum_fps = MODE_0_FPS,
 	.data_rate = DATA_RATE,
 };
 
@@ -927,8 +927,8 @@ static struct mtk_panel_params ext_params_90hz = {
 		.switch_en = 0,
 		.vact_timing_fps = MODE_1_FPS,
 	},
-	.lfr_enable = 1,
-	.lfr_minimum_fps = 60,
+	.lfr_enable = 0,
+	.lfr_minimum_fps = MODE_0_FPS,
 	.data_rate = DATA_RATE,
 };
 
@@ -986,8 +986,8 @@ static struct mtk_panel_params ext_params_60hz = {
 		.switch_en = 0,
 		.vact_timing_fps = MODE_2_FPS,
 	},
-	.lfr_enable = 1,
-	.lfr_minimum_fps = 60,
+	.lfr_enable = 0,
+	.lfr_minimum_fps = MODE_0_FPS,
 	.data_rate = DATA_RATE,
 };
 
@@ -1111,6 +1111,7 @@ static int tianma_get_modes(struct drm_panel *panel)
 	struct drm_display_mode *mode_90hz;
 	struct drm_display_mode *mode_60hz;
 
+	/* Default preferred mode: 120Hz */
 	mode = drm_mode_duplicate(panel->drm, &default_mode);
 	if (!mode) {
 		dev_err(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
@@ -1133,7 +1134,6 @@ static int tianma_get_modes(struct drm_panel *panel)
 	drm_mode_set_name(mode_90hz);
 	mode_90hz->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(panel->connector, mode_90hz);
-
 
 	mode_60hz = drm_mode_duplicate(panel->drm, &performance_mode_60hz);
 	if (!mode_60hz) {

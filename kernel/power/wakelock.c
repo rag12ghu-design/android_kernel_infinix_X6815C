@@ -1,3 +1,5 @@
+#include <linux/module.h>
+#include <linux/moduleparam.h>
 // SPDX-License-Identifier: GPL-2.0
 /*
  * kernel/power/wakelock.c
@@ -22,6 +24,10 @@
 
 #include "power.h"
 
+
+static char g_blocked_wakelocks[256] = "wlan_rx_wake,wlan_ctrl_wake,wlan_wake,netmgr_wl";
+module_param_string(blocked_wakelocks, g_blocked_wakelocks, sizeof(g_blocked_wakelocks), 0644);
+MODULE_PARM_DESC(blocked_wakelocks, "Comma-separated list of wakelocks to block");
 static DEFINE_MUTEX(wakelocks_lock);
 
 struct wakelock {
@@ -216,6 +222,16 @@ int pm_wake_lock(const char *buf)
 	len = str - buf;
 	if (!len)
 		return -EINVAL;
+
+	/* Selective Wakelock Interceptor */
+	if (g_blocked_wakelocks[0] != '\0') {
+		char wl_temp[64];
+		size_t clen = min(len, sizeof(wl_temp) - 1);
+		memcpy(wl_temp, buf, clen);
+		wl_temp[clen] = '\0';
+		if (strstr(g_blocked_wakelocks, wl_temp))
+			return 0;
+	}
 
 	if (*str && *str != '\n') {
 		/* Find out if there's a valid timeout string appended. */

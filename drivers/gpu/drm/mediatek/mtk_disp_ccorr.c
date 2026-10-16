@@ -28,6 +28,10 @@
 #include "mtk_log.h"
 #include "mtk_dump.h"
 #include "mtk_drm_helper.h"
+#include <linux/fb.h>
+#include <linux/kobject.h>
+#include <linux/workqueue.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_LEDS_MTK_DISP
 #include <mtk_leds_drv.h>
@@ -270,6 +274,8 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 #endif
 
 	if (handle == NULL) {
+		if (!atomic_read(&g_ccorr_is_clock_on[id]))
+			goto ccorr_write_coef_unlock;
 		/* use CPU to write */
 		writel(1, comp->regs + DISP_REG_CCORR_EN);
 		cfg_val = 0x2 | g_ccorr_relay_value[id] |
@@ -810,13 +816,107 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	return ret;
 }
 
+
+/* KCAL-compatible RGB color calibration interface */
+static int g_kcal_r = 256;
+static int g_kcal_g = 256;
+static int g_kcal_b = 256;
+static struct kobject *g_dispsys_kobj;
+
+static ssize_t kcal_rgb_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d %d %d\n", g_kcal_r, g_kcal_g, g_kcal_b);
+}
+
+static ssize_t kcal_rgb_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	int r, g, b, ret;
+	int scaled_r, scaled_g, scaled_b;
+
+	ret = sscanf(buf, "%d %d %d", &r, &g, &b);
+	if (ret != 3)
+		return -EINVAL;
+
+	if (r < 0) r = 0;
+	if (g < 0) g = 0;
+	if (b < 0) b = 0;
+
+	g_kcal_r = r;
+	g_kcal_g = g;
+	g_kcal_b = b;
+
+	/* KCAL standard 0..256 scale -> CCORR hardware matrix diagonal multiplier (1024 = 1.0x) */
+	if (r <= 256 && g <= 256 && b <= 256) {
+		scaled_r = (r * 1024) / 256;
+		scaled_g = (g * 1024) / 256;
+		scaled_b = (b * 1024) / 256;
+	} else {
+		scaled_r = clamp(r, 0, 2048);
+		scaled_g = clamp(g, 0, 2048);
+		scaled_b = clamp(b, 0, 2048);
+	}
+
+	if (default_comp) {
+		disp_ccorr_set_RGB_Gain(default_comp, NULL, scaled_r, scaled_g, scaled_b);
+		if (default_comp->mtk_crtc && default_comp->mtk_crtc->is_dual_pipe && ccorr1_default_comp)
+			disp_ccorr_set_RGB_Gain(ccorr1_default_comp, NULL, scaled_r, scaled_g, scaled_b);
+		if (default_comp->mtk_crtc)
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(rgb, 0664, kcal_rgb_show, kcal_rgb_store);
+
+static ssize_t kcal_kobj_rgb_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d %d %d\n", g_kcal_r, g_kcal_g, g_kcal_b);
+}
+
+static ssize_t kcal_kobj_rgb_store(struct kobject *kobj,
+				   struct kobj_attribute *attr,
+				   const char *buf, size_t count)
+{
+	return kcal_rgb_store(NULL, NULL, buf, count);
+}
+
+static struct kobj_attribute kcal_kobj_rgb_attr =
+	__ATTR(rgb, 0664, kcal_kobj_rgb_show, kcal_kobj_rgb_store);
+
+static void init_fb0_kcal_work(struct work_struct *work)
+{
+	int i;
+	for (i = 0; i < 50; i++) {
+		if (registered_fb[0] && registered_fb[0]->dev) {
+			device_create_file(registered_fb[0]->dev, &dev_attr_rgb);
+			break;
+		}
+		msleep(100);
+	}
+}
+static DECLARE_DELAYED_WORK(g_fb0_kcal_work, init_fb0_kcal_work);
+
+static struct DRM_DISP_CCORR_COEF_T s_kcal_def_coef[DISP_CCORR_TOTAL] = {
+	{ .coef = { {1024, 0, 0}, {0, 1024, 0}, {0, 0, 1024} } },
+	{ .coef = { {1024, 0, 0}, {0, 1024, 0}, {0, 0, 1024} } },
+};
+
 int disp_ccorr_set_RGB_Gain(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle,
 	int r, int g, int b)
 {
 	int ret;
+	int id = index_of_ccorr(comp->id);
 
 	mutex_lock(&g_ccorr_global_lock);
+	if (g_disp_ccorr_coef[id] == NULL)
+		g_disp_ccorr_coef[id] = &s_kcal_def_coef[id];
+
 	g_rgb_matrix[0][0] = r;
 	g_rgb_matrix[1][1] = g;
 	g_rgb_matrix[2][2] = b;
@@ -1190,8 +1290,24 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		return comp_id;
 	}
 
-	if (!default_comp && comp_id == DDP_COMPONENT_CCORR0)
+	if (!default_comp && comp_id == DDP_COMPONENT_CCORR0) {
 		default_comp = &priv->ddp_comp;
+
+		/* Expose KCAL rgb sysfs on CCORR platform device */
+		device_create_file(dev, &dev_attr_rgb);
+		if (dev->parent)
+			device_create_file(dev->parent, &dev_attr_rgb);
+
+		/* Expose /sys/devices/platform/14000000.dispsys/rgb */
+		if (!g_dispsys_kobj) {
+			g_dispsys_kobj = kobject_create_and_add("14000000.dispsys", &platform_bus.kobj);
+			if (g_dispsys_kobj)
+				sysfs_create_file(g_dispsys_kobj, &kcal_kobj_rgb_attr.attr);
+		}
+
+		/* Expose /sys/class/graphics/fb0/rgb */
+		schedule_delayed_work(&g_fb0_kcal_work, msecs_to_jiffies(1000));
+	}
 
 	if (!ccorr1_default_comp && comp_id == DDP_COMPONENT_CCORR1)
 		ccorr1_default_comp = &priv->ddp_comp;

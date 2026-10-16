@@ -348,8 +348,12 @@ out:
 			return -EINVAL;
 	}
 
-	if (!strcmp(a->attr.name, "trim_sections"))
-		return -EINVAL;
+	if (!strcmp(a->attr.name, "trim_sections") || !strcmp(a->attr.name, "manual_trim")) {
+		struct fstrim_range range = { 0, ULLONG_MAX, 0 };
+		f2fs_trim_fs(sbi, &range);
+		wake_up_discard_thread(sbi, true);
+		return count;
+	}
 
 	if (!strcmp(a->attr.name, "gc_urgent")) {
 		if (t >= 1) {
@@ -527,6 +531,7 @@ F2FS_RW_ATTR(F2FS_SBI, f2fs_sb_info, gc_idle, gc_mode);
 F2FS_RW_ATTR(F2FS_SBI, f2fs_sb_info, gc_urgent, gc_mode);
 F2FS_RW_ATTR(SM_INFO, f2fs_sm_info, reclaim_segments, rec_prefree_segments);
 F2FS_RW_ATTR(SM_INFO, f2fs_sm_info, main_blkaddr, main_blkaddr);
+F2FS_RW_ATTR(F2FS_SBI, f2fs_sb_info, manual_trim, interval_time[UMOUNT_DISCARD_TIMEOUT]);
 F2FS_RW_ATTR(DCC_INFO, discard_cmd_control, max_small_discards, max_discards);
 F2FS_RW_ATTR(DCC_INFO, discard_cmd_control, discard_granularity, discard_granularity);
 F2FS_RW_ATTR(RESERVED_BLOCKS, f2fs_sb_info, reserved_blocks, reserved_blocks);
@@ -616,6 +621,7 @@ static struct attribute *f2fs_attrs[] = {
 	ATTR_LIST(gc_urgent),
 	ATTR_LIST(reclaim_segments),
 	ATTR_LIST(main_blkaddr),
+	ATTR_LIST(manual_trim),
 	ATTR_LIST(max_small_discards),
 	ATTR_LIST(discard_granularity),
 	ATTR_LIST(batched_trim_sections),

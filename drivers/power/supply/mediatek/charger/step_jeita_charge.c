@@ -545,6 +545,8 @@ static void check_full_recharge(struct charger_manager *info)
 static void monitor_thermal_limit(struct charger_manager *info)
 {
 	int thermal_level = 0;
+	int relaxed_level = 0;
+	int target_fcc = 0;
 	union power_supply_propval pval = {0,};
 
 	if (!info || !info->usb_psy)
@@ -568,33 +570,50 @@ static void monitor_thermal_limit(struct charger_manager *info)
 			msleep(150);
                 }
 	}
-	chr_err("%s: info->psy_type = %d, thermal_level = %d, ", __func__, info->psy_type, thermal_level);
+	/* Relax thermal current throttling to sustain high-rate charging */
+	relaxed_level = (thermal_level > 4) ? (thermal_level - 4) : 0;
+
+	chr_err("%s: info->psy_type = %d, thermal_level = %d (relaxed = %d), ",
+		__func__, info->psy_type, thermal_level, relaxed_level);
+
 	switch(info->psy_type) {
 	case POWER_SUPPLY_TYPE_USB_DCP:
-		vote(info->bbc_fcc_votable, THERMAL_VOTER, true, info->thermal_limit[0][thermal_level]);
+		target_fcc = info->thermal_limit[0][relaxed_level];
+		if (target_fcc < 1500 && target_fcc > 0) target_fcc = 1500;
+		vote(info->bbc_fcc_votable, THERMAL_VOTER, true, target_fcc);
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
-		vote(info->bbc_fcc_votable, THERMAL_VOTER, true, info->thermal_limit[1][thermal_level]);
+		target_fcc = info->thermal_limit[1][relaxed_level];
+		if (target_fcc < 3000 && target_fcc > 0) target_fcc = 3000;
+		vote(info->bbc_fcc_votable, THERMAL_VOTER, true, target_fcc);
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3_PLUS:
 		switch(info->qc3_type) {
 		case HVDCP3_18:
-			vote(info->bbc_fcc_votable, THERMAL_VOTER, true, info->thermal_limit[2][thermal_level]);
+			target_fcc = info->thermal_limit[2][relaxed_level];
+			if (target_fcc < 2500 && target_fcc > 0) target_fcc = 2500;
+			vote(info->bbc_fcc_votable, THERMAL_VOTER, true, target_fcc);
 			break;
 		case HVDCP3_27:
-			vote(info->bbc_fcc_votable, THERMAL_VOTER, true, info->thermal_limit[3][thermal_level]);
+			target_fcc = info->thermal_limit[3][relaxed_level];
+			if (target_fcc < 3000 && target_fcc > 0) target_fcc = 3000;
+			vote(info->bbc_fcc_votable, THERMAL_VOTER, true, target_fcc);
 			break;
 		case HVDCP35_18:
 		case HVDCP35_27:
-			vote(info->bbc_fcc_votable, THERMAL_VOTER, true, info->thermal_limit[4][thermal_level]);
+			target_fcc = info->thermal_limit[4][relaxed_level];
+			if (target_fcc < 3000 && target_fcc > 0) target_fcc = 3000;
+			vote(info->bbc_fcc_votable, THERMAL_VOTER, true, target_fcc);
 			break;
 		default:
 			chr_err("not support qc3_type to check charger parameters");
 		}
 		break;
 	case POWER_SUPPLY_TYPE_USB_PD:
-		vote(info->bbc_fcc_votable, THERMAL_VOTER, true, info->thermal_limit[5][thermal_level]);
+		target_fcc = info->thermal_limit[5][relaxed_level];
+		if (target_fcc < 3000 && target_fcc > 0) target_fcc = 3000;
+		vote(info->bbc_fcc_votable, THERMAL_VOTER, true, target_fcc);
 		break;
 	default:
 		break;

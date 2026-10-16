@@ -25,6 +25,11 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <asm/unaligned.h>
+#include <linux/kobject.h>
+#include <linux/pm_wakeup.h>
+#include <linux/ktime.h>
+#include <linux/fb.h>
+#include "../../../gpu/drm/mediatek/mi_disp/mi_disp_notifier.h"
 
 #define NVT_TS_NAME             "mtk-tpd"
 #define NVT_DRIVER_NAME         "novatek-nvt-ts-spi"
@@ -64,7 +69,48 @@ struct nvt_ts_data {
 	struct pinctrl_state *pin_rst_low;
 	struct pinctrl_state *pin_rst_high;
 	bool fw_loaded;
+	bool double_tap2wake;
+	u64 last_tap_time;
+	int last_tap_x;
+	int last_tap_y;
+	int last_x;
+	int last_y;
+	bool was_touching;
+	bool suspended;
+	struct notifier_block mi_disp_notifier;
+	struct notifier_block fb_notifier;
 };
+
+
+/* Double Tap to Wake (DT2W) sysfs toggle: /sys/android_touch/double_tap2wake */
+static struct kobject *android_touch_kobj;
+static struct nvt_ts_data *g_nvt_ts;
+
+static ssize_t double_tap2wake_show(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buf)
+{
+	bool val = g_nvt_ts ? g_nvt_ts->double_tap2wake : true;
+	return sprintf(buf, "%d\n", val ? 1 : 0);
+}
+
+static ssize_t double_tap2wake_store(struct kobject *kobj,
+				     struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	int val, ret;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	if (g_nvt_ts)
+		g_nvt_ts->double_tap2wake = !!val;
+
+	return count;
+}
+
+static struct kobj_attribute double_tap2wake_attr =
+	__ATTR(double_tap2wake, 0664, double_tap2wake_show, double_tap2wake_store);
 
 /*
  * Stock CTP_SPI_READ (0xffffff972828e7d4):
@@ -143,7 +189,13 @@ static irqreturn_t nvt_ts_irq_thread(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-	/* Stock gesture key handling */
+	/* Drop multi-touch coordinate processing when display is suspended */
+	if (ts->suspended && !(buf[1] == 0xF0 && buf[2] == 0x04)) {
+		mutex_unlock(&ts->lock);
+		return IRQ_HANDLED;
+	}
+
+	/* Gesture key & Double Tap to Wake (DT2W) handling */
 	if (buf[1] == 0xF0 && buf[2] == 0x04) {
 		if (buf[3] == 0x02) {
 			input_report_key(ts->input_dev, KEY_F14, 1);
@@ -153,6 +205,12 @@ static irqreturn_t nvt_ts_irq_thread(int irq, void *dev_id)
 			mutex_unlock(&ts->lock);
 			return IRQ_HANDLED;
 		} else if (buf[3] == 0x01) {
+			if (ts->double_tap2wake) {
+				input_report_key(ts->input_dev, KEY_WAKEUP, 1);
+				input_sync(ts->input_dev);
+				input_report_key(ts->input_dev, KEY_WAKEUP, 0);
+				input_sync(ts->input_dev);
+			}
 			input_report_key(ts->input_dev, KEY_F13, 1);
 			input_sync(ts->input_dev);
 			input_report_key(ts->input_dev, KEY_F13, 0);
@@ -203,6 +261,8 @@ static irqreturn_t nvt_ts_irq_thread(int irq, void *dev_id)
 				input_report_abs(ts->input_dev, ABS_X, x);
 				input_report_abs(ts->input_dev, ABS_Y, y);
 				input_report_abs(ts->input_dev, ABS_PRESSURE, p > 255 ? 255 : p);
+				ts->last_x = x;
+				ts->last_y = y;
 			}
 			__set_bit(slot, active_slots);
 			any_touch = true;
@@ -216,6 +276,31 @@ static irqreturn_t nvt_ts_irq_thread(int irq, void *dev_id)
 			input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, false);
 		}
 	}
+
+	/* Software DT2W gesture recognition on tap release */
+	if (ts->was_touching && !any_touch && ts->double_tap2wake) {
+		u64 now = ktime_to_ms(ktime_get());
+		if (now - ts->last_tap_time <= 450 && now - ts->last_tap_time >= 40) {
+			int dx = abs(ts->last_x - ts->last_tap_x);
+			int dy = abs(ts->last_y - ts->last_tap_y);
+			if (dx < 150 && dy < 150) {
+				input_report_key(ts->input_dev, KEY_WAKEUP, 1);
+				input_sync(ts->input_dev);
+				input_report_key(ts->input_dev, KEY_WAKEUP, 0);
+				input_sync(ts->input_dev);
+				ts->last_tap_time = 0;
+			} else {
+				ts->last_tap_time = now;
+				ts->last_tap_x = ts->last_x;
+				ts->last_tap_y = ts->last_y;
+			}
+		} else {
+			ts->last_tap_time = now;
+			ts->last_tap_x = ts->last_x;
+			ts->last_tap_y = ts->last_y;
+		}
+	}
+	ts->was_touching = any_touch;
 
 	input_report_key(ts->input_dev, BTN_TOUCH, any_touch);
 	if (!any_touch)
@@ -492,6 +577,131 @@ static void nvt_ts_hw_reset(struct nvt_ts_data *ts)
 	dev_info(&ts->spi->dev, "hardware reset completed (GPIO %d)\n", ts->reset_gpio);
 }
 
+
+static int nvt_ts_suspend(struct device *dev)
+{
+	struct spi_device *spi = to_spi_device(dev);
+	struct nvt_ts_data *ts = spi_get_drvdata(spi);
+	int i;
+
+	if (!ts || ts->suspended)
+		return 0;
+
+	dev_info(dev, "Novatek touchscreen suspending (DT2W=%d)...\n", ts->double_tap2wake);
+
+	mutex_lock(&ts->lock);
+	ts->suspended = true;
+
+	/* Release all active touch slots to prevent stuck touch points */
+	for (i = 0; i < NVT_MAX_TOUCH_POINTS; i++) {
+		input_mt_slot(ts->input_dev, i);
+		input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, false);
+	}
+	input_report_key(ts->input_dev, BTN_TOUCH, 0);
+	input_report_abs(ts->input_dev, ABS_PRESSURE, 0);
+	input_mt_sync_frame(ts->input_dev);
+	input_sync(ts->input_dev);
+	ts->was_touching = false;
+	mutex_unlock(&ts->lock);
+
+	if (ts->double_tap2wake) {
+		enable_irq_wake(ts->irq);
+	} else {
+		disable_irq(ts->irq);
+	}
+
+	return 0;
+}
+
+static int nvt_ts_resume(struct device *dev)
+{
+	struct spi_device *spi = to_spi_device(dev);
+	struct nvt_ts_data *ts = spi_get_drvdata(spi);
+	int ret;
+
+	if (!ts || !ts->suspended)
+		return 0;
+
+	dev_info(dev, "Novatek touchscreen resuming...\n");
+
+	if (!ts->double_tap2wake && ts->irq > 0)
+		enable_irq(ts->irq);
+
+	/* Check if volatile SRAM firmware survived sleep */
+	ret = nvt_check_chip_id(ts);
+	if (ret != 0) {
+		dev_warn(dev, "Touch IC SRAM lost during sleep (ret=%d); performing hw reset and re-streaming firmware\n", ret);
+		nvt_ts_hw_reset(ts);
+
+		const struct firmware *fw_builtin = NULL;
+		ret = request_firmware(&fw_builtin, "novatek_ts_fw.bin", dev);
+		if (ret == 0 && fw_builtin) {
+			dev_info(dev, "found novatek_ts_fw.bin (%zu bytes), re-streaming to SRAM...\n", fw_builtin->size);
+			mutex_lock(&ts->lock);
+			ret = nvt_load_firmware(ts, fw_builtin);
+			mutex_unlock(&ts->lock);
+			if (ret)
+				dev_err(dev, "resume firmware load failed: %d\n", ret);
+			else
+				dev_info(dev, "resume novatek_ts_fw.bin reloaded and IC booted successfully\n");
+			release_firmware(fw_builtin);
+		} else {
+			dev_err(dev, "failed to load novatek_ts_fw.bin on resume: %d\n", ret);
+		}
+	} else {
+		dev_info(dev, "Novatek touchscreen resumed; SRAM firmware intact\n");
+	}
+
+	mutex_lock(&ts->lock);
+	ts->was_touching = false;
+	ts->last_tap_time = 0;
+	ts->suspended = false;
+	mutex_unlock(&ts->lock);
+
+	return 0;
+}
+
+#if defined(CONFIG_DRM)
+static int nvt_drm_notifier_callback(struct notifier_block *self,
+				     unsigned long event, void *data)
+{
+	struct nvt_ts_data *ts = container_of(self, struct nvt_ts_data, mi_disp_notifier);
+	struct mi_disp_notifier *ev = data;
+
+	if (!ev || ev->disp_id != MI_DISPLAY_PRIMARY)
+		return 0;
+
+	if (event == MI_DISP_DPMS_EVENT) {
+		int blank = (int)(unsigned long)ev->data;
+		if (blank == MI_DISP_DPMS_POWERDOWN || blank == MI_DISP_DPMS_SUSPEND) {
+			nvt_ts_suspend(&ts->spi->dev);
+		} else if (blank == MI_DISP_DPMS_ON) {
+			nvt_ts_resume(&ts->spi->dev);
+		}
+	}
+	return 0;
+}
+#endif
+
+#if defined(CONFIG_FB)
+static int nvt_fb_notifier_callback(struct notifier_block *self,
+				    unsigned long event, void *data)
+{
+	struct nvt_ts_data *ts = container_of(self, struct nvt_ts_data, fb_notifier);
+	struct fb_event *ev = data;
+
+	if (event == FB_EVENT_BLANK && ev && ev->data) {
+		int blank = *(int *)ev->data;
+		if (blank == FB_BLANK_POWERDOWN || blank == FB_BLANK_HSYNC_SUSPEND) {
+			nvt_ts_suspend(&ts->spi->dev);
+		} else if (blank == FB_BLANK_UNBLANK) {
+			nvt_ts_resume(&ts->spi->dev);
+		}
+	}
+	return 0;
+}
+#endif
+
 static int nvt_ts_spi_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
@@ -637,8 +847,8 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 			dev_warn(&spi->dev, "devm_gpio_request_one failed for irq_gpio: %d\n", ret);
 	}
 
-	if (!spi->max_speed_hz)
-		spi->max_speed_hz = 8000000;
+	/* Overclock SPI touch transfer clock from 8 MHz to 12 MHz to reduce packet read latency */
+	spi->max_speed_hz = 12000000;
 	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
 	ret = spi_setup(spi);
@@ -697,6 +907,7 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 	__set_bit(BTN_TOUCH, ts->input_dev->keybit);
 	__set_bit(KEY_F13, ts->input_dev->keybit);
 	__set_bit(KEY_F14, ts->input_dev->keybit);
+	__set_bit(KEY_WAKEUP, ts->input_dev->keybit);
 
 	input_set_abs_params(ts->input_dev, ABS_X, 0, 1080, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_Y, 0, 2460, 0, 0);
@@ -744,7 +955,40 @@ static int nvt_ts_spi_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, ts);
 
-	dev_info(&spi->dev, "Novatek NT36xxx SPI touchscreen registered successfully (IRQ %d)\n", ts->irq);
+	g_nvt_ts = ts;
+	ts->double_tap2wake = true;
+	device_init_wakeup(&spi->dev, true);
+	enable_irq_wake(ts->irq);
+
+	if (!android_touch_kobj) {
+		android_touch_kobj = kobject_create_and_add("android_touch", NULL);
+		if (android_touch_kobj) {
+			ret = sysfs_create_file(android_touch_kobj, &double_tap2wake_attr.attr);
+			if (ret)
+				dev_warn(&spi->dev, "sysfs_create_file double_tap2wake failed: %d\n", ret);
+		}
+	}
+
+
+#if defined(CONFIG_DRM)
+	ts->mi_disp_notifier.notifier_call = nvt_drm_notifier_callback;
+	ret = mi_disp_register_client(&ts->mi_disp_notifier);
+	if (ret)
+		dev_warn(&spi->dev, "mi_disp_register_client failed: %d\n", ret);
+	else
+		dev_info(&spi->dev, "mi_disp_notifier registered successfully\n");
+#endif
+
+#if defined(CONFIG_FB)
+	ts->fb_notifier.notifier_call = nvt_fb_notifier_callback;
+	ret = fb_register_client(&ts->fb_notifier);
+	if (ret)
+		dev_warn(&spi->dev, "fb_register_client failed: %d\n", ret);
+	else
+		dev_info(&spi->dev, "fb_notifier registered successfully\n");
+#endif
+
+	dev_info(&spi->dev, "Novatek NT36xxx SPI touchscreen registered successfully (IRQ %d, SPI 12MHz, DT2W enabled)\n", ts->irq);
 	return 0;
 }
 
@@ -760,12 +1004,37 @@ static const struct spi_device_id nvt_ts_spi_id[] = {
 };
 MODULE_DEVICE_TABLE(spi, nvt_ts_spi_id);
 
+static int nvt_ts_spi_remove(struct spi_device *spi)
+{
+	struct nvt_ts_data *ts = spi_get_drvdata(spi);
+
+	if (ts) {
+#if defined(CONFIG_DRM)
+		mi_disp_unregister_client(&ts->mi_disp_notifier);
+#endif
+#if defined(CONFIG_FB)
+		fb_unregister_client(&ts->fb_notifier);
+#endif
+		if (android_touch_kobj) {
+			sysfs_remove_file(android_touch_kobj, &double_tap2wake_attr.attr);
+		}
+	}
+	return 0;
+}
+
+static const struct dev_pm_ops nvt_ts_pm_ops = {
+	.suspend = nvt_ts_suspend,
+	.resume  = nvt_ts_resume,
+};
+
 static struct spi_driver nvt_ts_spi_driver = {
 	.driver = {
 		.name           = NVT_DRIVER_NAME,
 		.of_match_table = nvt_ts_spi_of_match,
+		.pm             = &nvt_ts_pm_ops,
 	},
 	.probe  = nvt_ts_spi_probe,
+	.remove = nvt_ts_spi_remove,
 	.id_table = nvt_ts_spi_id,
 };
 

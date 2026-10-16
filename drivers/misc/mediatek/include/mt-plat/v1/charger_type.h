@@ -8,20 +8,20 @@
 
 struct device;
 
-#define SDP_ICL		500
-#define SDP_FCC		500
+#define SDP_ICL		1500
+#define SDP_FCC		1500
 #define SDP_VINMIN	4200
 
 #define CDP_ICL		1500
 #define CDP_FCC		1500
 #define CDP_VINMIN	4200
 
-#define DCP_ICL		1500
-#define DCP_FCC		1500
+#define DCP_ICL		3300
+#define DCP_FCC		3300
 #define DCP_VINMIN	4200
 
-#define C2C_ICL		1500
-#define C2C_FCC		1500
+#define C2C_ICL		3000
+#define C2C_FCC		3300
 #define C2C_VINMIN	4200
 
 #define OCP_ICL		1200
@@ -93,7 +93,7 @@ struct device;
 
 #define PD3_RUBYPLUS_DFAULT_ICL		1500
 
-#define PD3_ICL		2500
+#define PD3_ICL		3300
 #define PD3_VINMIN	8000
 
 #define DEFAULT_ICL	550

@@ -18,6 +18,47 @@
 #include <linux/backing-dev.h>
 #include "internal.h"
 
+#include <linux/kobject.h>
+#include <linux/moduleparam.h>
+
+static bool dyn_fsync_active = true;
+module_param(dyn_fsync_active, bool, 0644);
+MODULE_PARM_DESC(dyn_fsync_active, "Dynamic fsync active (1 = enabled, 0 = disabled)");
+
+static struct kobject *dyn_fsync_kobj;
+
+static ssize_t dyn_fsync_active_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", dyn_fsync_active ? 1 : 0);
+}
+
+static ssize_t dyn_fsync_active_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int val, ret;
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return ret;
+	dyn_fsync_active = !!val;
+	if (!dyn_fsync_active)
+		emergency_sync();
+	return count;
+}
+
+static struct kobj_attribute dyn_fsync_active_attr =
+	__ATTR(Dyn_fsync_active, 0664, dyn_fsync_active_show, dyn_fsync_active_store);
+
+static int __init dyn_fsync_sysfs_init(void)
+{
+	dyn_fsync_kobj = kobject_create_and_add("dyn_fsync", kernel_kobj);
+	if (dyn_fsync_kobj) {
+		int ret = sysfs_create_file(dyn_fsync_kobj, &dyn_fsync_active_attr.attr);
+		if (ret)
+			pr_warn("dyn_fsync: failed to create sysfs attribute: %d\n", ret);
+	}
+	return 0;
+}
+late_initcall(dyn_fsync_sysfs_init);
+
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
 			SYNC_FILE_RANGE_WAIT_AFTER)
 
@@ -219,7 +260,11 @@ static int do_fsync(unsigned int fd, int datasync)
 	int ret = -EBADF;
 
 	if (f.file) {
-		ret = vfs_fsync(f.file, datasync);
+		if (dyn_fsync_active) {
+			ret = 0;
+		} else {
+			ret = vfs_fsync(f.file, datasync);
+		}
 		fdput(f);
 		inc_syscfs(current);
 	}

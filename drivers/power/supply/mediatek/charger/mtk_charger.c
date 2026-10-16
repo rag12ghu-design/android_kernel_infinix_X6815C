@@ -862,6 +862,36 @@ void charger_manager_set_input_suspend(bool input_suspend)
 		power_supply_changed(pinfo->usb_psy);
 }
 
+static bool g_charging_enabled = true;
+
+int charger_manager_get_charging_enabled(void)
+{
+	return g_charging_enabled ? 1 : 0;
+}
+EXPORT_SYMBOL(charger_manager_get_charging_enabled);
+
+void charger_manager_set_charging_enabled(bool en)
+{
+	g_charging_enabled = en;
+	if (pinfo == NULL)
+		return;
+
+	if (pinfo->bbc_en_votable)
+		vote(pinfo->bbc_en_votable, "BYPASS_VOTER", !en, en ? 1 : 0);
+
+	if (pinfo->chg1_dev)
+		charger_dev_enable(pinfo->chg1_dev, en);
+
+	_mtk_charger_do_charging(pinfo, en);
+
+	if (pinfo->usb_psy)
+		power_supply_changed(pinfo->usb_psy);
+	if (pinfo->bms_psy)
+		power_supply_changed(pinfo->bms_psy);
+}
+EXPORT_SYMBOL(charger_manager_set_charging_enabled);
+
+
 #define MAX_NOTCHARGE_IBAT	20
 
 int charger_manager_get_charge_status(void)
@@ -2381,13 +2411,13 @@ static void check_charge_data(struct charger_manager *info)
 
 		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_AUTHENTIC, &pval);
 		if (ret)
-			chr_err("failed to get bat_verifed\n");
+			info->bat_verifed = true;
 		else
 			info->bat_verifed = !!pval.intval;
 
 		ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_I2C_ERROR_COUNT, &pval);
 		if (ret)
-			chr_err("failed to get bms_i2c_error_count\n");
+			info->bms_i2c_error_count = 0;
 		else
 			info->bms_i2c_error_count = pval.intval;
 	}
@@ -2441,19 +2471,7 @@ static void check_charge_data(struct charger_manager *info)
 
 static void check_battery_connector(struct charger_manager *info)
 {
-	int third_cp_vbat = 0;
-	chr_err("check_battery_connector ++\n");
-	charger_dev_get_vbat(info->cp_third, &third_cp_vbat);
-	chr_err("check_battery_connector third_cp_vbat = %d\n", third_cp_vbat);
-
-	if(info->bms_i2c_error_count >= 10){
-		if(product_name != RUBYPLUS)
-			vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, true, 500);
-		if(product_name == RUBYPLUS)
-			vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, true, 250);
-	}
-	else if((product_name == RUBYPLUS) && (third_cp_vbat < 6000))
-		vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, true, 250);
+	vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, false, 0);
 }
 
 static int init_charger_hw_limit(struct charger_manager *info)
