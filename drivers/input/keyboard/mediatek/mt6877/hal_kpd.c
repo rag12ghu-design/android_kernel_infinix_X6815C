@@ -20,7 +20,12 @@ static u16 kpd_keymap_state[KPD_NUM_MEMS] = {
 	0xffff, 0xffff, 0xffff, 0xffff, 0x00ff
 };
 
-static void enable_kpd(int enable)
+enum boot_mode_t __attribute__((weak)) get_boot_mode(void)
+{
+	return NORMAL_BOOT;
+}
+
+void kpd_enable(int enable)
 {
 	if (enable == 1) {
 		mt_reg_sync_writew((u16) (enable), KP_EN);
@@ -115,10 +120,10 @@ void kpd_wakeup_src_setting(int enable)
 	if (is_fm_radio_playing == 0) {
 		if (enable == 1) {
 			kpd_print("enable kpd work!\n");
-			enable_kpd(1);
+			kpd_enable(1);
 		} else {
 			kpd_print("disable kpd work!\n");
-			enable_kpd(0);
+			kpd_enable(0);
 		}
 	}
 }

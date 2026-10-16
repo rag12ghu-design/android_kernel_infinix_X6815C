@@ -19,6 +19,8 @@ else ifeq (y, $(filter y, $(CONFIG_MACH_MT6779)))
 MTK_KPD_PLATFORM:=mt6779
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6781)))
 MTK_KPD_PLATFORM:=mt6781
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+MTK_KPD_PLATFORM:=mt6877
 else ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
 MTK_KPD_PLATFORM:=mt6893
 else

@@ -199,6 +199,22 @@ static void kpd_keymap_handler(unsigned long data)
 			linux_keycode = kpd_keymap[hw_keycode];
 			if (linux_keycode == 0U)
 				continue;
+
+			if (linux_keycode == KEY_VOLUMEUP) {
+				/* Hardware anti-jam: send momentary click impulse (DOWN then UP)
+				 * so a physically jammed button does not trap Android into an
+				 * infinite repeat storm (repeatCount > 40,000).
+				 */
+				if (pressed) {
+					input_report_key(kpd_input_dev, KEY_VOLUMEUP, 1);
+					input_sync(kpd_input_dev);
+					input_report_key(kpd_input_dev, KEY_VOLUMEUP, 0);
+					input_sync(kpd_input_dev);
+					kpd_notice("kpd: anti-jam single impulse for KEY_VOLUMEUP\n");
+				}
+				continue;
+			}
+
 			input_report_key(kpd_input_dev, linux_keycode, pressed);
 			input_sync(kpd_input_dev);
 			kpd_print("report Linux keycode = %d\n", linux_keycode);
@@ -245,6 +261,16 @@ void kpd_get_dts_info(struct device_node *node)
 {
 	int32_t ret;
 
+	kpd_dts_data.kpd_key_debounce = 1024;
+	kpd_dts_data.kpd_sw_pwrkey = KEY_POWER;
+	kpd_dts_data.kpd_hw_pwrkey = 8;
+	kpd_dts_data.kpd_sw_rstkey = KEY_VOLUMEDOWN;
+	kpd_dts_data.kpd_hw_rstkey = 17;
+	kpd_dts_data.kpd_hw_map_num = 72;
+	memset(kpd_dts_data.kpd_hw_init_map, 0, sizeof(kpd_dts_data.kpd_hw_init_map));
+	kpd_dts_data.kpd_hw_init_map[0] = KEY_VOLUMEUP;   /* 115 */
+	kpd_dts_data.kpd_hw_init_map[1] = KEY_VOLUMEDOWN; /* 114 */
+
 	of_property_read_u32(node, "mediatek,kpd-key-debounce",
 		&kpd_dts_data.kpd_key_debounce);
 	of_property_read_u32(node, "mediatek,kpd-sw-pwrkey",
@@ -279,6 +305,8 @@ void kpd_get_dts_info(struct device_node *node)
 		kpd_print("kpd-hw-init-map was not defined in dts.\n");
 		memset(kpd_dts_data.kpd_hw_init_map, 0,
 			sizeof(kpd_dts_data.kpd_hw_init_map));
+		kpd_dts_data.kpd_hw_init_map[0] = KEY_VOLUMEUP;   /* 115 */
+		kpd_dts_data.kpd_hw_init_map[1] = KEY_VOLUMEDOWN; /* 114 */
 	}
 
 	kpd_print("deb= %d, sw-pwr= %d, hw-pwr= %d, hw-rst= %d, sw-rst= %d\n",
@@ -295,23 +323,27 @@ static int32_t kpd_gpio_init(struct device *dev)
 
 	if (dev == NULL) {
 		kpd_print("kpd device is NULL!\n");
-		ret = -1;
-	} else {
-		keypad_pinctrl = devm_pinctrl_get(dev);
-		if (IS_ERR(keypad_pinctrl)) {
-			ret = -1;
-			kpd_print("Cannot find keypad_pinctrl!\n");
-		} else {
-			kpd_default = pinctrl_lookup_state(keypad_pinctrl,
-				"default");
-			if (IS_ERR(kpd_default)) {
-				ret = -1;
-				kpd_print("Cannot find ecall_state!\n");
-			} else
-				ret = pinctrl_select_state(keypad_pinctrl,
-					kpd_default);
-		}
+		return -EINVAL;
 	}
+
+	keypad_pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(keypad_pinctrl)) {
+		ret = PTR_ERR(keypad_pinctrl);
+		kpd_notice("Cannot find keypad_pinctrl: %d\n", ret);
+		return ret;
+	}
+
+	kpd_default = pinctrl_lookup_state(keypad_pinctrl, "default");
+	if (IS_ERR(kpd_default)) {
+		ret = PTR_ERR(kpd_default);
+		kpd_notice("Cannot find default state: %d\n", ret);
+		return ret;
+	}
+
+	ret = pinctrl_select_state(keypad_pinctrl, kpd_default);
+	if (ret)
+		kpd_notice("Cannot select default state: %d\n", ret);
+
 	return ret;
 }
 
@@ -366,7 +398,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 			kp_base, &kp_base, kp_irqnr);
 	err = kpd_gpio_init(&pdev->dev);
 	if (err != 0)
-		kpd_print("gpio init failed\n");
+		kpd_notice("gpio init bypassed (%d), continuing probe\n", err);
 
 	kpd_get_dts_info(pdev->dev.of_node);
 
