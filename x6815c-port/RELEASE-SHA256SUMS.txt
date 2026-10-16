@@ -1,0 +1,2 @@
+166b7a91fcda6ceef16e5b952cc44edd1baf652421febfa6d5113487161396d4  boot_x6815c.img
+166b7a91fcda6ceef16e5b952cc44edd1baf652421febfa6d5113487161396d4  boot_a_custom.img

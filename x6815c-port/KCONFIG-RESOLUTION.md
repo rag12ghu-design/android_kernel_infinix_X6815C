@@ -161,5 +161,5 @@ CONFIG_SONY_FF: stock=n generated=y
 3. **Compiler Security & ThinLTO**:
    - `CONFIG_THINLTO=y`
    - `CONFIG_CFI_CLANG=y`
-   - `CONFIG_SHADOW_CALL_STACK=y`
+   - `# CONFIG_SHADOW_CALL_STACK is not set` (disabled to preserve `x18` scratch register and 32-byte `struct thread_info` ABI compatibility with stock `/vendor/lib/modules/*.ko`)
 
