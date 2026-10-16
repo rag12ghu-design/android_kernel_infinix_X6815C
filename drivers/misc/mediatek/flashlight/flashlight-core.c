@@ -1656,6 +1656,28 @@ static struct device *flashlight_device;
 static dev_t flashlight_devno;
 static struct cdev *flashlight_cdev;
 
+/* Compatibility sysfs node: /sys/class/torch/torch/torch_level */
+static struct class *torch_class;
+static struct device *torch_device;
+static int torch_level_val;
+
+static ssize_t torch_level_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", torch_level_val);
+}
+
+static ssize_t torch_level_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int val = 0;
+	if (kstrtoint(buf, 10, &val) == 0)
+		torch_level_val = val;
+	return size;
+}
+
+static DEVICE_ATTR_RW(torch_level);
+
 static int fl_init(void)
 {
 	return 0;
@@ -1766,6 +1788,25 @@ static int flashlight_probe(struct platform_device *dev)
 		goto err_create_sw_disable_device_file;
 	}
 
+	/* create compatibility torch sysfs node: /sys/class/torch/torch/torch_level */
+	torch_class = class_create(THIS_MODULE, "torch");
+	if (!IS_ERR(torch_class)) {
+		torch_device = device_create(torch_class, NULL, 0, NULL, "torch");
+		if (!IS_ERR(torch_device)) {
+			if (device_create_file(torch_device, &dev_attr_torch_level))
+				pr_warn("Failed to create torch_level file\n");
+			else
+				pr_info("Created /sys/class/torch/torch/torch_level\n");
+		} else {
+			pr_warn("Failed to create torch device: %ld\n", PTR_ERR(torch_device));
+			class_destroy(torch_class);
+			torch_class = NULL;
+		}
+	} else {
+		pr_warn("Failed to create torch class: %ld\n", PTR_ERR(torch_class));
+		torch_class = NULL;
+	}
+
 	/* init flashlight */
 	fl_init();
 
@@ -1812,6 +1853,13 @@ static int flashlight_remove(struct platform_device *dev)
 	device_remove_file(flashlight_device, &dev_attr_flashlight_strobe);
 	/* remove device */
 	device_destroy(flashlight_class, flashlight_devno);
+	if (torch_device && !IS_ERR(torch_device)) {
+		device_remove_file(torch_device, &dev_attr_torch_level);
+		device_destroy(torch_class, 0);
+	}
+	if (torch_class && !IS_ERR(torch_class))
+		class_destroy(torch_class);
+
 	/* remove class */
 	class_destroy(flashlight_class);
 	/* remove char device */

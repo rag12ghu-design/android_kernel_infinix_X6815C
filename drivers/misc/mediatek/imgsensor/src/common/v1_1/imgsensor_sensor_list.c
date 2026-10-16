@@ -647,3 +647,7 @@ struct IMGSENSOR_SENSOR_LIST
 
 /* e_add new sensor driver here */
 
+
+#if defined(S5KJN1_MIPI_RAW) || defined(HI1631Q_MIPI_RAW) || defined(GC02M1_MIPI_RAW) || defined(GC02M1MACRO_MIPI_RAW)
+#include "x6815c_cameras.c"
+#endif

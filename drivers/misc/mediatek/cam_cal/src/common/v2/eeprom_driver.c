@@ -292,8 +292,13 @@ static const struct file_operations geeprom_file_operations = {
 static inline int retrieve_index(struct i2c_client *client,
 				 unsigned int *index)
 {
-	const char *node_name = client->dev.of_node->name;
+	const char *node_name;
 	const size_t prefix_len = strlen(DEV_NODE_NAME_PREFIX);
+
+	if (!client || !client->dev.of_node)
+		return -EINVAL;
+
+	node_name = client->dev.of_node->name;
 
 	if (strncmp(node_name, DEV_NODE_NAME_PREFIX, prefix_len) == 0 &&
 	    kstrtouint(node_name + prefix_len, 10, index) == 0) {
@@ -396,6 +401,9 @@ static int eeprom_probe(struct i2c_client *client,
 {
 	unsigned int index = 0;
 
+	if (!client || !client->dev.of_node)
+		return -EINVAL;
+
 	pr_debug("probe start name: %s\n", client->dev.of_node->name);
 
 	if (retrieve_index(client, &index) < 0)
@@ -407,6 +415,9 @@ static int eeprom_probe(struct i2c_client *client,
 static int eeprom_remove(struct i2c_client *client)
 {
 	unsigned int index = 0;
+
+	if (!client || !client->dev.of_node)
+		return -EINVAL;
 
 	pr_debug("remove name: %s\n", client->dev.of_node->name);
 

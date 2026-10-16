@@ -1,3 +1,1 @@
-# SPDX-License-Identifier: GPL-2.0
-
-obj-y				+= regulator.o
+obj-y += regulator.o ext_ldo.o
