@@ -8,7 +8,7 @@ config MI_DISP
 config MI_DISP_LOG
 	bool "Xiaomi Display Feature support"
 	default y
-	depends on DRM_MEDIATEK
+	depends on MI_DISP
 	help
 	  This creates /dev/mi_display/disp_feature.
 
@@ -58,7 +58,7 @@ config MI_DISP_NOTIFIER
 
 config MI_DISP_LOG
 	bool "Xiaomi Display Log support"
-	default y
+	default n
 	depends on MI_DISP
 	help
 	  This creates /dev/mi_display/disp_log.

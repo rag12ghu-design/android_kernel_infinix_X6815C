@@ -532,7 +532,7 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 
 	DDPINFO("%s: %d\n", __func__, bl_1024);
 
-#if CONFIG_MI_DISP
+#ifdef CONFIG_MI_DISP
 	mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_BACKLIGHT, sizeof(bl_1024), bl_1024);
 #endif
 

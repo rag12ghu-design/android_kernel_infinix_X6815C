@@ -485,8 +485,23 @@ static void mtk_dsi_mask(struct mtk_dsi *dsi, u32 offset, u32 mask, u32 data)
 static bool mtk_dsi_doze_state(struct mtk_dsi *dsi)
 {
 	struct drm_crtc *crtc = dsi->encoder.crtc;
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *state;
 
+	/*
+	 * Tianma NT36672C (and LCD panels in general) do not support
+	 * AOD / Doze mode. SurfaceFlinger on HyperOS sets CRTC_PROP_DOZE_ACTIVE,
+	 * but if the panel does not implement doze_enable callbacks, entering
+	 * doze state causes mtk_output_dsi_disable to skip drm_panel_unprepare
+	 * and mtk_output_dsi_enable to skip drm_panel_prepare, producing severe
+	 * visual tearing, scanlines, and un-woken panel states upon wake.
+	 */
+	if (!dsi->ext || !dsi->ext->funcs || !dsi->ext->funcs->doze_enable)
+		return false;
+
+	if (!crtc || !crtc->state)
+		return false;
+
+	state = to_mtk_crtc_state(crtc->state);
 	return state->prop_val[CRTC_PROP_DOZE_ACTIVE];
 }
 
@@ -2136,7 +2151,7 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 	if (!dsi->output_en)
 		return;
 
-	DISP_TIME_INFO("%s doze_enabled state change %d->%d\n", __func__,
+	DDPINFO("%s doze_enabled state change %d->%d\n", __func__,
 		dsi->doze_enabled, doze_enabled);
 
 	if (dsi->ext && dsi->ext->funcs && crtc) {
@@ -2855,7 +2870,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	int blank;
 #endif
 
-	DISP_TIME_INFO("%s + mode id: %u\n", __func__, mode_id);
+	DDPINFO("%s + mode id: %u\n", __func__, mode_id);
 
 	if (dsi->output_en) {
 #ifdef CONFIG_MI_DISP_NOTIFIER
@@ -3149,7 +3164,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 	int blank;
 #endif
 
-	DISP_TIME_INFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
+	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
 		return;
 
@@ -6753,7 +6768,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			panel_ext->funcs->set_backlight_cmdq(dsi,
 					mipi_dsi_dcs_write_gce,
 					handle, *(int *)params);
-#if CONFIG_MI_DISP
+#ifdef CONFIG_MI_DISP
 			mi_disp_feature_event_notify_by_type(mi_get_disp_id("primary"), MI_DISP_EVENT_51_BRIGHTNESS, sizeof(*(int *)params), *(int *)params);
 #endif
 		}

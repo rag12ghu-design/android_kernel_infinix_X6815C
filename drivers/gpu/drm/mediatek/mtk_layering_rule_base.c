@@ -1969,7 +1969,7 @@ static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 	}
 
 	/* these are set by kernel, should be 0 */
-	if (disp_info->res_idx || disp_info->hrt_weight || disp_info->hrt_idx) {
+	if (disp_info->hrt_weight || disp_info->hrt_idx) {
 		DDPPR_ERR("[HRT] fail, res_idx %d, hrt_weight %u, hrt_idx %u\n", disp_info->res_idx,
 			  disp_info->hrt_weight, disp_info->hrt_idx);
 		return -1;
@@ -2052,10 +2052,8 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 	unsigned long int layer_size = 0;
 	int ret = 0;
 
-	if (l_info->layer_num[disp_idx] <= 0) {
-		/* direct skip */
-		return -EFAULT;
-	}
+	if (l_info->layer_num[disp_idx] <= 0)
+		return 0;
 
 	disp_info_user->gles_head[disp_idx] = l_info->gles_head[disp_idx];
 	disp_info_user->gles_tail[disp_idx] = l_info->gles_tail[disp_idx];
@@ -2088,6 +2086,7 @@ static int copy_layer_info_to_user(struct drm_mtk_layering_info *disp_info_user,
 	disp_info_user->hrt_num = l_info->hrt_num;
 	disp_info_user->hrt_idx = l_info->hrt_idx;
 	disp_info_user->hrt_weight = l_info->hrt_weight;
+	disp_info_user->bound_tb = l_info->bound_tb;
 	for (i = 0; i < HRT_TYPE_NUM; i++)
 		_copy_layer_info_by_disp(disp_info_user, debug_mode, i);
 
@@ -3159,19 +3158,19 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 
 #if IS_ENABLED(CONFIG_COMPAT)
 struct drm_mtk_layering_info_32 {
-	compat_uptr_t input_config[3];
-	int disp_mode[3];
-	/* index of crtc display mode including resolution, fps... */
-	int disp_mode_idx[3];
-	int layer_num[3];
-	int gles_head[3];
-	int gles_tail[3];
+	compat_uptr_t input_config[4];
+	int disp_mode[4];
+	int disp_mode_idx[4];
+	int layer_num[4];
+	int gles_head[4];
+	int gles_tail[4];
 	int hrt_num;
-	/* res_idx: SF/HWC selects which resolution to use */
+	uint32_t bound_tb;
+	uint32_t pad;
 	int res_idx;
 	uint32_t hrt_weight;
 	uint32_t hrt_idx;
-	compat_uptr_t mml_frame_info[3];
+	compat_uptr_t mml_frame_info[4];
 };
 
 int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,
@@ -3183,15 +3182,18 @@ int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,
 
 	if (copy_from_user(&data32, (void __user *)arg, sizeof(data32)))
 		return -EFAULT;
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 4; i++) {
 		data.input_config[i] = compat_ptr(data32.input_config[i]);
 		data.disp_mode[i] = data32.disp_mode[i];
 		data.disp_mode_idx[i] = data32.disp_mode_idx[i];
 		data.layer_num[i] = data32.layer_num[i];
 		data.gles_head[i] = data32.gles_head[i];
 		data.gles_tail[i] = data32.gles_tail[i];
+		data.mml_cfg[i] = compat_ptr(data32.mml_frame_info[i]);
 	}
 	data.hrt_num = data32.hrt_num;
+	data.bound_tb = data32.bound_tb;
+	data.pad = data32.pad;
 	data.res_idx = data32.res_idx;
 	data.hrt_weight = data32.hrt_weight;
 	data.hrt_idx = data32.hrt_idx;
@@ -3201,7 +3203,7 @@ int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,
 	if (err)
 		return err;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 4; i++) {
 		//data32.input_config[i] = ptr_to_compat(data.input_config[i]);
 		data32.disp_mode[i] = data.disp_mode[i];
 		data32.disp_mode_idx[i] = data.disp_mode_idx[i];
@@ -3210,6 +3212,8 @@ int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,
 		data32.gles_tail[i] = data.gles_tail[i];
 	}
 	data32.hrt_num = data.hrt_num;
+	data32.bound_tb = data.bound_tb;
+	data32.pad = data.pad;
 	data32.res_idx = data.res_idx;
 	data32.hrt_weight = data.hrt_weight;
 	data32.hrt_idx = data.hrt_idx;

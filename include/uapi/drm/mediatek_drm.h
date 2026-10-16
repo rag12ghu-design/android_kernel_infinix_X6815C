@@ -566,19 +566,19 @@ struct drm_mtk_layer_config {
 };
 
 struct drm_mtk_layering_info {
-	struct drm_mtk_layer_config __user *input_config[3];
-	int disp_mode[3];
-	/* index of crtc display mode including resolution, fps... */
-	int disp_mode_idx[3];
-	int layer_num[3];
-	int gles_head[3];
-	int gles_tail[3];
+	struct drm_mtk_layer_config __user *input_config[4];
+	int disp_mode[4];
+	int disp_mode_idx[4];
+	int layer_num[4];
+	int gles_head[4];
+	int gles_tail[4];
 	int hrt_num;
-	/* res_idx: SF/HWC selects which resolution to use */
+	uint32_t bound_tb;
+	uint32_t pad;
 	int res_idx;
 	uint32_t hrt_weight;
 	uint32_t hrt_idx;
-	struct mml_frame_info *mml_cfg[3];
+	struct mml_frame_info *mml_cfg[4];
 };
 
 /**

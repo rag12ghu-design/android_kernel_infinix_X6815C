@@ -445,11 +445,11 @@ static int mtk_leds_parse_dt(struct device *dev,
 			if (!strcmp(state, "half"))
 				level = s_led->info.config.max_brightness / 2;
 			else if (!strcmp(state, "on"))
-				level = s_led->info.config.max_brightness;
+				level = s_led->info.config.max_brightness / 4;
 			else
 				level = s_led->conf.level = 0;
 		} else {
-			level = s_led->info.config.max_brightness;
+			level = s_led->info.config.max_brightness / 4;
 		}
 		pr_info("parse %s(%d) leds dt: %s, %s, %d, %d, %d\n",
 			s_led->conf.cdev.name, num, s_led->info.config.name,

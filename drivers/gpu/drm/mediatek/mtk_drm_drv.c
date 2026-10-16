@@ -4131,9 +4131,9 @@ static int __init mtk_drm_init(void)
 
 #ifdef CONFIG_MI_DISP
 	mi_disp_feature_init();
-#endif
 #ifdef CONFIG_MI_DISP_LOG
 	mi_disp_log_init();
+#endif
 #endif
 
 	DDPINFO("%s+\n", __func__);

@@ -2386,7 +2386,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	}
 	need_mode_switch = false;
 
-	DISP_TIME_INFO("no delay from %u to %u\n",
+	DDPINFO("no delay from %u to %u\n",
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
