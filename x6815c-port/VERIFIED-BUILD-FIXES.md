@@ -89,17 +89,88 @@ Extracted directly from the running kernel image and symbol tables:
 
 ---
 
-## 9. Safe Hardware Verification Protocol
+## 10. Touchscreen Driver Implementation (`nt36xxx_spi.c`)
+
+- **Problem**: Touchscreen was completely unresponsive; no touch input devices were registered in userspace.
+- **Root Cause**: `CONFIG_TOUCHSCREEN_MTK_NT36xxx_NOFLASH_COMMON=y` in defconfig only referenced an empty Kconfig stub in `drivers/misc/mediatek/tran_compat/Kconfig` with no source implementation. On Infinix X6815C, the Novatek NT36672C is a No-Flash controller wired to MT6877 SPI4 (`spi4@11018000`).
+- **Resolution**:
+  - Implemented standalone driver `drivers/input/touchscreen/nt36xxx_spi.c`.
+  - Added volatile SRAM firmware upload streaming:
+    - **ILM**: 73,095 bytes (`0x100` -> `0x00000000`)
+    - **DLM**: 17,791 bytes (`0x18100` -> `0x00027140`)
+  - Configured falling-edge interrupt trigger (`IRQF_TRIGGER_FALLING | IRQF_ONESHOT`) on EINT 14 (GPIO 14) and reset pin on GPIO 15.
+  - Bypassed destructive hardware resets on warm boot to preserve bootloader-preloaded firmware.
+  - Registered `mtk-tpd` direct multi-touch device matching Android InputReader expectations.
+
+---
+
+## 11. Battery Telemetry & MediaTek GM3.0 / FGADC Fallbacks
+
+- **Problem**: Battery displayed 1% capacity and `present: false` after boot.
+- **Root Cause**: `drivers/power/supply/mediatek/battery/mtk_battery.c` had an unconditional `if (!data->USE_TI_GAUGE) return -EPERM;` at lines 483-486, failing all property reads because the Infinix DTB does not set `use-ti-gauge`.
+- **Resolution**:
+  - Replaced unconditional `-EPERM` rejection with native fallbacks to MediaTek GM3.0 / FGADC functions (`battery_get_uisoc()`, `battery_get_bat_voltage()`, `battery_get_bat_temperature()`, `battery_get_bat_current()`, `charger_manager_get_charge_status()`).
+  - Restored real-time battery percentage, voltage, temperature, and charging status across Android SystemUI.
+
+---
+
+## 12. MediaTek DRM Layering Rule ABI Parity
+
+- **Problem**: Screen blanked / went black after boot logo, or severe display glitching occurred.
+- **Root Cause**:
+  - 64-bit userspace `/vendor/lib64/hw/hwcomposer.mt6877.so` calls IOCTL `0xc0a86445` (`_IOC(3, 'd', 0x45, 168)`), which expects `struct drm_mtk_layering_info` to contain 4 displays (168 bytes).
+  - 32-bit compat userspace calls IOCTL `0xc0886445`, expecting 4 displays with 32-bit pointers (`compat_uptr_t`, 136 bytes).
+  - Modifying the struct array size or alignment caused graphics composer to crash with `SIGSEGV` or reject the IOCTL with `-EINVAL`.
+- **Resolution**:
+  - Restored exact 168-byte struct in `include/uapi/drm/mediatek_drm.h` and 136-byte struct in `mtk_layering_rule_base.c`.
+  - Relaxed `check_disp_info` validation to allow active hardware plane transitions without error.
+
+---
+
+## 13. Camera Subsystem: S5KJN1 Burst DMA I2C, 4-Cell Bayer Gb & ISP SOF Synchronization
+
+- **Problem**: Camera application reported "Camera not enabled" or "Could not connect to camera"; preview had a severe magenta/pink tint and upside-down orientation.
+- **Root Causes**:
+  1. **Burst DMA Protocol**: Samsung S5KJN1 uses auto-incrementing SRAM address registers (`0x6028`, `0x602a`, `0x6f12`). Individual single-entry I2C writes with STOP conditions disrupted register programming, causing the sensor to output truncated lines and triggering `TG_GBERR_ST` (`0x20`) and `DMA_ERR_ST` (`0x800000`).
+  2. **ISP Command Queue Desync**: When `CAM_A PHY cqcnt != VIR cqcnt`, `drivers/misc/mediatek/cameraisp/src/mt6873/camera_isp.c` explicitly stripped `SOF_INT_ST` from userspace, causing `NormalPipe` to time out with `-EFAULT` (errno 14).
+  3. **Color Format**: Sensor output was configured as `Raw B` (0) instead of `SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gb` (`0x1A = 26`), swapping green and blue channels during ISP demosaicing.
+  4. **Orientation**: Chassis sensor mounting is inverted, requiring hardware H+V flip (`0x0101 = 0x03`).
+- **Resolution**:
+  - Implemented 1016-byte burst DMA I2C transfers via `iBurstWriteReg_multi(buf, len, 0x20, 4, 1000)` in `drivers/misc/mediatek/imgsensor/src/common/v1_1/x6815c_cameras.c`.
+  - Added stock hardware preamble writes (`0x6028=0x4000`, `0x0000=0x0003`, `0x0000=0x38e1`, `0x001e=0x0007`, `0x6010=0x0001`, `0x6226=0x0001`) with microsecond delays.
+  - Aligned raw format to `SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gb` (`0x1A`), restoring natural color balance.
+  - Programmed register `0x0101` to `0x03` and exposed `/sys/class/s5kjn1/s5kjn1_flip` for runtime adjustments.
+  - Implemented feature `3094` (`SET_SHUTTER_FRAME_TIME`) for smooth 30 FPS AE lock.
+
+---
+
+## 14. Flashlight Sysfs Compatibility Node
+
+- **Problem**: Stock vendor camera HAL (`libcam.hal3a.v3.platform.so`) crashed with SIGABRT due to Bionic `fclose(NULL)` when opening `/sys/class/torch/torch/torch_level`.
+- **Resolution**:
+  - Created `/sys/class/torch/torch/torch_level` directly in `drivers/misc/mediatek/flashlight/flashlight-core.c`.
+  - Ensures stock vendor libraries open a valid file descriptor without crashing.
+
+---
+
+## 15. Shadow Call Stack (SCS) Architectural Decoupling
+
+- **Problem**: Kernel panic at 16.14s during `insmod /vendor/lib/modules/bt_drv_6877.ko`.
+- **Root Cause**: Stock vendor module `bt_drv_6877.ko` was compiled with `# CONFIG_SHADOW_CALL_STACK is not set`. Building the kernel with SCS enabled caused compiler to reserve register `x18` for the shadow call stack pointer and shifted `task_struct` offsets by +8 bytes, corrupting memory when the vendor module accessed `current->thread`.
+- **Resolution**: Disabled `CONFIG_SHADOW_CALL_STACK` in defconfig (`# CONFIG_SHADOW_CALL_STACK is not set`), aligning ABI and resolving the crash.
+
+---
+
+## 16. Safe Hardware Verification Protocol
 
 ```bash
 # 1. Boot device into fastboot mode
 adb reboot bootloader
 
-# 2. Non-destructive live RAM test (does NOT write to NAND storage)
-fastboot boot out-x6815c/boot_x6815c.img
+# 2. Flash to active boot partition (or boot_b for dual-slot testing)
+fastboot flash boot out-x6815c/boot_x6815c.img
 
-# 3. Safe installation to inactive Slot B (guarantees Slot A recovery rollback)
-fastboot flash boot_b out-x6815c/boot_x6815c.img
-fastboot --set-active=b
+# 3. Reboot into Android
 fastboot reboot
 ```
+

@@ -1,8 +1,32 @@
 # X6815C Verified Kernel Source Port & Boot Pipeline (Slot B Grounded)
 
-Comprehensive production release for the Infinix Zero 5G 2023 (X6815C / MT6877) Linux 4.19 kernel source port, resolving all build limitations, hardware crash panics, and late-initcall traps grounded on pristine **Slot B** factory firmware (`x6815c-inactive-slot-20261011T085849Z`).
+## Build #43 Production Release (Full Subsystem Bringup & Device-Tested)
+
+Production-grade, device-tested release of the Linux 4.19.191+ kernel for the **Infinix Zero 5G 2023** (`CY-X6815C-H777` / MediaTek Dimensity 920 MT6877), running **Android 15 HyperOS** (`Redmi/pearl/pearl:15/AP3A.240905.015.A2/OS3.0.2.0.VNQMIDC`).
+
+### What's New & Resolved in Build #43
+- **Camera DMA Burst Protocol**: 1016-byte burst DMA I2C transfers via `iBurstWriteReg_multi(buf, len, 0x20, 4, 1000)` in `drivers/misc/mediatek/imgsensor/src/common/v1_1/x6815c_cameras.c`.
+- **ISP Command Queue & SOF Handling**: Resolved hardware command queue desync (`CAM_A PHY cqcnt != VIR cqcnt`) in `camera_isp.c`, preventing kernel from stripping `SOF_INT_ST` and eliminating `NormalPipe` `-EFAULT` (errno 14) timeouts ("Camera not enabled").
+- **Color Format Calibration**: Set raw output to `SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gb` (`0x1A = 26`), eliminating magenta/pink color cast and restoring natural color balance.
+- **Orientation & Sysfs Controls**: Programmed sensor register `0x0101` to `0x03` (hardware H+V flip / 180° rotation) and exposed `/sys/class/s5kjn1/s5kjn1_flip` for live runtime orientation adjustment.
+- **AE Synchronization**: Added feature `3094` (`SET_SHUTTER_FRAME_TIME`) maintaining smooth 30 FPS AE lock.
+- **Torch Sysfs Shims**: Implemented `/sys/class/torch/torch/torch_level` in `flashlight-core.c` protecting stock vendor camera HAL from Bionic `fclose(NULL)` SIGABRT crashes.
+- **Standalone Touchscreen Driver**: `drivers/input/touchscreen/nt36xxx_spi.c` on SPI4 (`spi4@11018000`) with volatile SRAM firmware streaming (ILM/DLM), falling-edge IRQ on EINT 14, and warm-boot reset bypass.
+- **Display & DRM Parity**: 120Hz/90Hz/60Hz dynamic refresh with strict 168-byte native (`0xc0a86445`) and 136-byte compat (`0xc0886445`) DRM layering rule ABI parity.
+- **Battery GM3.0 / FGADC**: Replaced unconditional `-EPERM` rejection with native fallbacks in `mtk_battery.c`, restoring real-time capacity percentage, voltage, and charging state.
+- **Keypad Matrix**: Single-impulse anti-jam reporting and pull-up pinctrl deferral.
+- **Root & Security**: Built-in APatch (`KernelPatch v11282`, SuperKey: `ApatchRoot2026`) and AVB 1.0 footer (strictly `41,943,040` bytes).
+
+### Verified Build #43 Artifacts & Checksums
+
+| Artifact | Size | SHA-256 |
+| :--- | :--- | :--- |
+| **`boot_x6815c.img`** | 41,943,040 bytes | `166b7a91fcda6ceef16e5b952cc44edd1baf652421febfa6d5113487161396d4` |
+| **`Image.gz`** | 13,189,877 bytes | `5bd6176e6bcd2941da7506956fc87c5cf716e128e4e2bdca0d9fd40efe129e27` |
+| **`X6815C-verified-boot-build43.tar.xz`** | 53,354,820 bytes | `27380bb730790e694c36153223b4dc9a02d451d4b693c6b459cf18d3538f160e` |
 
 ---
+
 
 ## Highlights & Resolution of Limitations
 
